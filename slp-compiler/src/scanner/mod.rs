@@ -24,11 +24,13 @@ pub fn scan(input: &str) -> Option<Vec<Token>> {
 			resulting_tokens.push(token);
 
 			let new_tokens = scan(new_input);
-			if new_tokens.is_some() {
-				resulting_tokens.append(&mut new_tokens.unwrap());
+			match new_tokens {
+				None => None,
+				Some(mut x) => {
+					resulting_tokens.append(&mut x);
+					Some(resulting_tokens)
+				}
 			}
-
-			Some(resulting_tokens)
 		}
 	}
 }

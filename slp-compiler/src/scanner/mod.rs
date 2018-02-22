@@ -1,12 +1,12 @@
 pub use self::token::Token;
 mod token;
 
-pub fn scan(input: &str) -> Option<Vec<Token>> {
+pub fn scan(input: &str) -> Result<Vec<Token>, usize> {
 	let trimmed_input = input.trim_left();
 
 	// Base case
 	if trimmed_input.is_empty() {
-		return Some(Vec::new());
+		return Ok(Vec::new());
 	}
 
 	// Do functions here that take string and produce token + rest of string
@@ -17,18 +17,20 @@ pub fn scan(input: &str) -> Option<Vec<Token>> {
 				.or_else(|| scan_char(trimmed_input))
 				.or_else(|| scan_identifiers(trimmed_input));
 
+	// Note when we encounter an error we return the distance to the error character. At the end
+	// of the recursion we get the index of the character where we failed
 	match result {
-		None => None,
+		None => Err(input.len() - trimmed_input.len()),
 		Some((token, new_input)) => {
 			let mut resulting_tokens = Vec::new();
 			resulting_tokens.push(token);
 
 			let new_tokens = scan(new_input);
 			match new_tokens {
-				None => None,
-				Some(mut x) => {
+				Err(e) => Err(e + input.len() - new_input.len()),
+				Ok(mut x) => {
 					resulting_tokens.append(&mut x);
-					Some(resulting_tokens)
+					Ok(resulting_tokens)
 				}
 			}
 		}

@@ -23,5 +23,21 @@ fn main() {
 		::std::process::exit(1)
 	});
 
-	println!("{:?}", scanner::scan(&file_contents));
+	let tokens: Vec<scanner::Token>;
+	match scanner::scan(&file_contents) {
+		Err(index) => {
+			let (line_number, line) = index_to_context(&file_contents, index);
+			println!("Scanner error at line {} near {}:\n{}",
+				line_number, file_contents.chars().collect::<Vec<char>>()[index], line);
+			return ()
+		},
+		Ok(t) => tokens = t,
+	}
+
+	println!("Produced tokens: {:?}", tokens);
+}
+
+// Given an index it returns the line number and actual line the index is in
+fn index_to_context(input: &str, index: usize) -> (usize, String) {
+	(0, String::new())
 }

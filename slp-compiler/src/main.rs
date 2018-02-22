@@ -39,5 +39,15 @@ fn main() {
 
 // Given an index it returns the line number and actual line the index is in
 fn index_to_context(input: &str, index: usize) -> (usize, String) {
-	(0, String::new())
+	let (front, back) = input.split_at(index);
+	let mut front: Vec<char> = front.chars().
+		rev().take_while(|&x| x != '\r' && x != '\n').collect::<Vec<char>>().into_iter().
+		rev().collect();
+	let mut back: Vec<char> = back.chars().take_while(|&x| x != '\r' && x != '\n').collect();
+
+	front.append(&mut back);
+	let line: String = front.into_iter().collect();
+
+	// If for whatever reason the line can not be found it defaults to saying line 1
+	(input.lines().position(|x| x == line).unwrap_or(0) + 1, line)
 }

@@ -1,5 +1,5 @@
 [package]
-name = "slp-compiler"
+name = "spl-compiler"
 version = "0.1.0"
 authors = ["Oussama Danba <OussamaDanba@gmail.com>"]
 

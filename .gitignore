@@ -1,5 +1,5 @@
 ## Rust gitignore
-slp-compiler/target/
+spl-compiler/target/
 **/*.rs.bk
 
 ## VSCode gitignore

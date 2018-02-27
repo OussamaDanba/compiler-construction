@@ -1,8 +1,12 @@
+#[macro_use]
+extern crate combine;
+
 use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 
 mod scanner;
+mod parser;
 
 fn main() {
 	// Read in specified file into a String. We don't want to panic here so we use exit.
@@ -23,7 +27,7 @@ fn main() {
 		::std::process::exit(1)
 	});
 
-	let tokens: Vec<scanner::Token>;
+	let mut tokens: Vec<scanner::Token>;
 	match scanner::scan(&file_contents) {
 		Err(index) => {
 			let (line_number, line) = index_to_context(&file_contents, index);
@@ -34,7 +38,15 @@ fn main() {
 		Ok(t) => tokens = t,
 	}
 
+	// Remove comment tokens as we do not care about those
+	tokens = tokens.into_iter().filter(|x| match *x {
+		scanner::Token::TokenComment(_) => false,
+		_ => true,
+	}).collect();
+
 	println!("Produced tokens: {:?}", tokens);
+
+	parser::parse(&tokens);
 }
 
 // Given an index it returns the line number and actual line the index is in

@@ -27,7 +27,7 @@ fn main() {
 		::std::process::exit(1)
 	});
 
-	let mut tokens: Vec<scanner::Token>;
+	let tokens: Vec<(scanner::Token, usize)>;
 	match scanner::scan(&file_contents) {
 		Err(index) => {
 			let (line_number, line) = index_to_context(&file_contents, index);
@@ -35,18 +35,13 @@ fn main() {
 				line_number, file_contents.chars().collect::<Vec<char>>()[index], line);
 			return ()
 		},
-		Ok(t) => tokens = t,
+		Ok(t) => tokens = scanner_postprocessing(t),
 	}
-
-	// Remove comment tokens as we do not care about those
-	tokens = tokens.into_iter().filter(|x| match *x {
-		scanner::Token::TokenComment(_) => false,
-		_ => true,
-	}).collect();
 
 	println!("Produced tokens: {:?}", tokens);
 
-	parser::parse(&tokens);
+	let only_tokens: Vec<scanner::Token> = tokens.iter().map(|x| (x.0).clone()).collect();
+	parser::parse(&only_tokens);
 }
 
 // Given an index it returns the line number and actual line the index is in
@@ -62,4 +57,19 @@ fn index_to_context(input: &str, index: usize) -> (usize, String) {
 
 	// If for whatever reason the line can not be found it defaults to saying line 1
 	(input.lines().position(|x| x == line).unwrap_or(0) + 1, line)
+}
+
+// Converts each token length pair to token index pair. Additionally removes comments as we do not care about those.
+fn scanner_postprocessing(mut input: Vec<(scanner::Token, usize)>) -> Vec<(scanner::Token, usize)> {
+	let mut accumulator: usize = 0;
+	for pair in &mut input {
+		let temp = pair.1;
+		pair.1 = accumulator;
+		accumulator += temp;
+	}
+
+	input.into_iter().filter(|x| match x.0 {
+		scanner::Token::TokenComment(_) => false,
+		_ => true,
+	}).collect()
 }

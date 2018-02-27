@@ -1,7 +1,9 @@
 pub use self::token::Token;
 mod token;
 
-pub fn scan(input: &str) -> Result<Vec<Token>, usize> {
+// Either returns a vector of tokens where each token has its textual length (including whitespace) attached
+// or it returns the location where a scanner error occured.
+pub fn scan(input: &str) -> Result<Vec<(Token, usize)>, usize> {
 	let trimmed_input = input.trim_left();
 
 	// Base case
@@ -23,7 +25,7 @@ pub fn scan(input: &str) -> Result<Vec<Token>, usize> {
 		None => Err(input.len() - trimmed_input.len()),
 		Some((token, new_input)) => {
 			let mut resulting_tokens = Vec::new();
-			resulting_tokens.push(token);
+			resulting_tokens.push((token, input.len() - new_input.len()));
 
 			let new_tokens = scan(new_input);
 			match new_tokens {

@@ -27,6 +27,8 @@
 
 <FunType> = [ <FTypes> ] '$\rightarrow$' <RetType>
 
+<FTypes> = <Type> [ <FTypes> ]
+
 <Type> = <BasicType> \\| '(' <Type> ',' <Type> ')' \\| '[' <Type> ']' \\| <id>
 
 <BasicType> = '\textbf{Int}' \\| '\textbf{Bool}' \\| '\textbf{Char}'
@@ -71,6 +73,8 @@
 <RetType> = <Type> \\| '\textbf{Void}'
 
 <FunType> = [ <FTypes> ] '$\rightarrow$' <RetType>
+
+<FTypes> = <Type> [ <FTypes> ]
 
 <Type> = '\textbf{Int}' \\| '\textbf{Bool}' \\| '\textbf{Char}' \\| '(' <Type> ',' <Type> ')' \\| '[' <Type> ']' \\| <id>
 
@@ -131,6 +135,8 @@
 <RetType> = <Type> \\| '\textbf{Void}'
 
 <FunType> = [ <FTypes> ] '$\rightarrow$' <RetType>
+
+<FTypes> = <Type> [ <FTypes> ]
 
 <Type> = '\textbf{Int}' \\| '\textbf{Bool}' \\| '\textbf{Char}' \\| '(' <Type> ',' <Type> ')' \\| '[' <Type> ']' \\| <id>
 

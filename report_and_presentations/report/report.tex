@@ -1,5 +1,6 @@
 \documentclass{article}
 \usepackage[utf8]{inputenc}
+\usepackage[nounderscore]{syntax}
 
 \title{Compiler Construction report}
 \author{Oussama Danba}
@@ -9,8 +10,153 @@
 
 \maketitle
 
-\section{Scanner}
+% given grammar, note that <char> was added for completeness
+\renewcommand{\syntleft}{$\langle$\normalfont\ttfamily}
+\setlength{\grammarindent}{2cm}
+\setlength{\grammarparsep}{0cm}
+\begin{grammar}
+<SPL> = <Decl>+
 
-\section{Parser}
+<Decl> = <VarDecl> \\| <FunDecl>
+
+<VarDecl> = ('\textbf{var}' | <Type>) <id> '=' <Exp> ';'
+
+<FunDecl> = <id> '(' [ <FArgs> ] ')' [ '::' <FunType> ] '\{' <VarDecl>* <Stmt>+ '\}'
+
+<RetType> = <Type> \\| '\textbf{Void}'
+
+<FunType> = [ <FTypes> ] '$\rightarrow$' <RetType>
+
+<Type> = <BasicType> \\| '(' <Type> ',' <Type> ')' \\| '[' <Type> ']' \\| <id>
+
+<BasicType> = '\textbf{Int}' \\| '\textbf{Bool}' \\| '\textbf{Char}'
+
+<FArgs> = [ <FArgs> ',' ] <id>
+
+<Stmt> = '\textbf{if}' '(' <Exp> ')' '{' <Stmt>* '}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
+
+<Exp> = <id> <Field> \\| <Exp> <Op2> <Exp> \\| <Op1> <Exp> \\| <int> \\| <char> \\| '\textbf{False}' \\| '\textbf{True}' \\| '(' <Exp> ')' \\| <FunCall> \\| '[]' \\| '(' <Exp> ',' <Exp> ')'
+
+<Field> = [ <Field> ( '.' '\textbf{hd}' | '.' '\textbf{tl}' | '.' '\textbf{fst}' | '.' '\textbf{snd}' ) ]
+
+<FunCall> = <id> '(' [ <ActArgs> ] ')'
+
+<ActArgs> = <Exp> [ ',' <ActArgs> ]
+
+<Op2> = '+' | '-' | '*' | '/' | '\%' | '==' | '\textless' | '\textgreater' | '\textless=' | '\textgreater=' | '!=' | '\&\&' | '||' | ':'
+
+<Op1> = '!' | '-'
+
+<int> = [ '-' ] digit+
+
+<char> = ' alpha '
+
+<id> = alpha ( '\_' | alphaNum)*
+\end{grammar}
+
+% grammar that the parser parses
+% BasicType moved into Type for easiness
+% FArgs turned around to remove left recursion. (result is the same)
+% Field split into Field and Field2 to remove left recursion.
+% Exp split up into parts to take operator precedence into account. <Exp> <Op2> <Exp> is no longer needed because it is encoded through the other means.
+\begin{grammar}
+<SPL> = <Decl>+
+
+<Decl> = <VarDecl> \\| <FunDecl>
+
+<VarDecl> = ('\textbf{var}' | <Type>) <id> '=' <Exp> ';'
+
+<FunDecl> = <id> '(' [ <FArgs> ] ')' [ '::' <FunType> ] '\{' <VarDecl>* <Stmt>+ '\}'
+
+<RetType> = <Type> \\| '\textbf{Void}'
+
+<FunType> = [ <FTypes> ] '$\rightarrow$' <RetType>
+
+<Type> = '\textbf{Int}' \\| '\textbf{Bool}' \\| '\textbf{Char}' \\| '(' <Type> ',' <Type> ')' \\| '[' <Type> ']' \\| <id>
+
+<FArgs> = <id> [ <FArgs> ',' ]
+
+<Stmt> = '\textbf{if}' '(' <Exp> ')' '{' <Stmt>* '}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
+
+<Exp> = <Exp2> [ '\%' <Exp> ]
+
+<Exp2> = <Exp3> [ ( '+' | '-' ) <Exp2> ]
+
+<Exp3> = <Exp4> [ ( '*' | '/' ) <Exp3> ]
+
+<Exp4> = <Exp5> [ ( '==' | '\textless' | '\textgreater' | '\textless=' | '\textgreater=' | '!=' ) <Exp4> ]
+
+<Exp5> = <Exp6> [ '||' <Exp5> ]
+
+<Exp6> = <Exp7> [ '\&\&' <Exp6> ]
+
+<Exp7> = <Exp8> [ ':' <Exp7> ]
+
+<Exp8> = <id> <Field> \\| <Op1> <Exp> \\| <int> \\| <char> \\| '\textbf{False}' \\| '\textbf{True}' \\| '(' <Exp> ')' \\| <FunCall> \\| '[]' \\| '(' <Exp> ',' <Exp> ')'
+
+<Field> = <Field2>*
+
+<Field2> = '.' '\textbf{hd}' | '.' '\textbf{tl}' | '.' '\textbf{fst}' | '.' '\textbf{snd}'
+
+<FunCall> = <id> '(' [ <ActArgs> ] ')'
+
+<ActArgs> = <Exp> [ ',' <ActArgs> ]
+
+<Op1> = '!' | '-'
+
+<int> = [ '-' ] digit+
+
+<char> = ' alpha '
+
+<id> = alpha ( '\_' | alphaNum)*
+\end{grammar}
+
+\section{Scanning and Parsing}
+\subsection{Scanner}
+
+\subsection{Parser}
 
 \end{document}
+
+% non left recursive exp: (this exists as a backup)
+\begin{grammar}
+<SPL> = <Decl>+
+
+<Decl> = <VarDecl> \\| <FunDecl>
+
+<VarDecl> = ('\textbf{var}' | <Type>) <id> '=' <Exp> ';'
+
+<FunDecl> = <id> '(' [ <FArgs> ] ')' [ '::' <FunType> ] '\{' <VarDecl>* <Stmt>+ '\}'
+
+<RetType> = <Type> \\| '\textbf{Void}'
+
+<FunType> = [ <FTypes> ] '$\rightarrow$' <RetType>
+
+<Type> = '\textbf{Int}' \\| '\textbf{Bool}' \\| '\textbf{Char}' \\| '(' <Type> ',' <Type> ')' \\| '[' <Type> ']' \\| <id>
+
+<FArgs> = <id> [ <FArgs> ',' ]
+
+<Stmt> = '\textbf{if}' '(' <Exp> ')' '{' <Stmt>* '}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
+
+<Exp> = <id> <Field> [ <Exp2> ] \\| <Op1> <Exp> [ <Exp2> ] \\| <int> [ <Exp2> ] \\| <char> [ <Exp2> ] \\| '\textbf{False}' [ <Exp2> ] \\| '\textbf{True}' [ <Exp2> ] \\| '(' <Exp> ')' [ <Exp2> ] \\| <FunCall> [ <Exp2> ] \\| '[]' [ <Exp2> ] \\| '(' <Exp> ',' <Exp> ')' [ <Exp2> ]
+
+<Exp2> = <Op2> <Exp>
+
+<Field> = <Field2>*
+
+<Field2> = '.' '\textbf{hd}' | '.' '\textbf{tl}' | '.' '\textbf{fst}' | '.' '\textbf{snd}'
+
+<FunCall> = <id> '(' [ <ActArgs> ] ')'
+
+<ActArgs> = <Exp> [ ',' <ActArgs> ]
+
+<Op2> = '+' | '-' | '*' | '/' | '\%' | '==' | '\textless' | '\textgreater' | '\textless=' | '\textgreater=' | '!=' | '\&\&' | '||' | ':'
+
+<Op1> = '!' | '-'
+
+<int> = [ '-' ] digit+
+
+<char> = ' alpha '
+
+<id> = alpha ( '\_' | alphaNum)*
+\end{grammar}

@@ -35,7 +35,7 @@
 
 <FArgs> = [ <FArgs> ',' ] <id>
 
-<Stmt> = '\textbf{if}' '(' <Exp> ')' '{' <Stmt>* '}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
+<Stmt> = '\textbf{if}' '(' <Exp> ')' '\{' <Stmt>* '\}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
 
 <Exp> = <id> <Field> \\| <Exp> <Op2> <Exp> \\| <Op1> <Exp> \\| <int> \\| <char> \\| '\textbf{False}' \\| '\textbf{True}' \\| '(' <Exp> ')' \\| <FunCall> \\| '[]' \\| '(' <Exp> ',' <Exp> ')'
 
@@ -80,7 +80,7 @@
 
 <FArgs> = <id> [ <FArgs> ',' ]
 
-<Stmt> = '\textbf{if}' '(' <Exp> ')' '{' <Stmt>* '}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
+<Stmt> = '\textbf{if}' '(' <Exp> ')' '\{' <Stmt>* '\}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
 
 <Exp> = <Exp2> [ '\%' <Exp> ]
 
@@ -142,7 +142,7 @@
 
 <FArgs> = <id> [ <FArgs> ',' ]
 
-<Stmt> = '\textbf{if}' '(' <Exp> ')' '{' <Stmt>* '}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
+<Stmt> = '\textbf{if}' '(' <Exp> ')' '\{' <Stmt>* '\}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
 
 <Exp> = <id> <Field> [ <Exp2> ] \\| <Op1> <Exp> [ <Exp2> ] \\| <int> [ <Exp2> ] \\| <char> [ <Exp2> ] \\| '\textbf{False}' [ <Exp2> ] \\| '\textbf{True}' [ <Exp2> ] \\| '(' <Exp> ')' [ <Exp2> ] \\| <FunCall> [ <Exp2> ] \\| '[]' [ <Exp2> ] \\| '(' <Exp> ',' <Exp> ')' [ <Exp2> ]
 

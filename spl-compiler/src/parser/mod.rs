@@ -333,13 +333,13 @@ parser!{
 			parse_type().map(Some)
 		);
 
-		(
+		try((
 			var_type,
 			parse_identifier(),
 			token(Token::TokenEquals),
 			parse_exp(),
 			token(Token::TokenSemiColon)
-		).map(|(vtype, ident, _, exp, _)| Variable {
+		)).map(|(vtype, ident, _, exp, _)| Variable {
 			name: ident,
 			vtype: vtype,
 			value: exp

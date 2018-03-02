@@ -230,6 +230,25 @@ parser!{
 	fn parse_statement[I]()(I) -> Statement
 	  where [I: Stream<Item=Token>]
 	{
+		let if_parser = (
+			token(Token::TokenIf),
+			token(Token::TokenParenOpen),
+			parse_exp(),
+			token(Token::TokenParenClose),
+			token(Token::TokenBraceOpen),
+			many(parse_statement()),
+			token(Token::TokenBraceClose),
+			optional((
+				token(Token::TokenElse),
+				token(Token::TokenBraceOpen),
+				many(parse_statement()),
+				token(Token::TokenBraceClose)
+			))
+		).map(|(_, _, exp, _, _, stmts, _, option_stmts)| match option_stmts {
+			Some(x) => Statement::If(exp, stmts, x.2),
+			None => Statement::If(exp, stmts, Vec::new())
+		});
+
 		let while_parse = (
 			token(Token::TokenWhile),
 			token(Token::TokenParenOpen),
@@ -254,7 +273,7 @@ parser!{
 		});
 
 		choice!(
-			// TODO: if parser
+			try(if_parser),
 			try(while_parse),
 			try(assignment_parse),
 			try((funcall_parse, token(Token::TokenSemiColon)).map(|(func, _)| Statement::FunCall(func))),

@@ -226,6 +226,43 @@ parser!{
 	}
 }
 
+parser!{
+	fn parse_statement[I]()(I) -> Statement
+	  where [I: Stream<Item=Token>]
+	{
+		let while_parse = (
+			token(Token::TokenWhile),
+			token(Token::TokenParenOpen),
+			parse_exp(),
+			token(Token::TokenParenClose),
+			token(Token::TokenBraceOpen),
+			many(parse_statement()),
+			token(Token::TokenBraceClose)
+		).map(|(_, _, exp, _, _, stmts, _)| Statement::While(exp, stmts));
+
+		let assignment_parse = (parse_identifier(), parse_field(), token(Token::TokenEquals), parse_exp(), token(Token::TokenSemiColon)).
+		map(|(ident, fields, _, exp, _)| Statement::Assignment(ident, fields, exp));
+
+		let return_parse = (token(Token::TokenReturn), optional(parse_exp()), token(Token::TokenSemiColon))
+			.map(|(_, exp, _)| Statement::Return(exp));
+
+		let actargs_parse = (parse_exp(), many((token(Token::TokenComma), parse_exp()).map(|x| x.1)))
+				.map(|(exp, mut exps): (Expression, Vec<Expression>)| { exps.push(exp); exps } );
+		let funcall_parse = (parse_identifier(), token(Token::TokenParenOpen), optional(actargs_parse), token(Token::TokenParenClose)).map(|(ident, _, actargs, _)| match actargs {
+			Some(x) => Expression::FunCall(ident, x),
+			_ => Expression::FunCall(ident, Vec::new())
+		});
+
+		choice!(
+			// TODO: if parser
+			try(while_parse),
+			try(assignment_parse),
+			try((funcall_parse, token(Token::TokenSemiColon)).map(|(func, _)| Statement::FunCall(func))),
+			try(return_parse)
+		)
+	}
+}
+
 pub fn parse(tokens: &[Token]) {
-	println!("{:?}", (parse_exp()).parse(tokens));
+	println!("{:?}", (parse_statement()).parse(tokens));
 }

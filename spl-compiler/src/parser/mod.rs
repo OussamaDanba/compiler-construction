@@ -2,7 +2,7 @@ pub use self::ast::*;
 mod ast;
 
 use scanner::Token;
-use combine::{satisfy_map, token, many, optional, try, Stream, Parser};
+use combine::{many, many1, optional, Parser, satisfy_map, sep_by, Stream, token, try};
 
 parser!{
 	fn parse_identifier[I]()(I) -> Ident
@@ -57,7 +57,6 @@ parser!{
 		let parse_empty_list = (token(Token::TokenBracketOpen), token(Token::TokenBracketClose))
 			.map(|_| Literal::EmptyList);
 
-		// try is needed here as we may consume part of the tokens when failing
 		choice!(
 			try(parse_int),
 			try(parse_char),
@@ -207,22 +206,28 @@ parser!{
 			_ => panic!("Unreachable")
 		});
 
-		let actargs_parse = (parse_exp(), many((token(Token::TokenComma), parse_exp()).map(|x| x.1)))
-				.map(|(exp, mut exps): (Expression, Vec<Expression>)| { exps.push(exp); exps } );
-		let funcall_parse = (parse_identifier(), token(Token::TokenParenOpen), optional(actargs_parse), token(Token::TokenParenClose)).map(|(ident, _, actargs, _)| match actargs {
-			Some(x) => Expression::FunCall(ident, x),
-			_ => Expression::FunCall(ident, Vec::new())
-		});
-
-		// try is needed here as we may consume part of the tokens when failing
 		choice!(
-			try((parse_identifier(), parse_field()).map(|(i, fs)| Expression::Ident(i, fs))),
 			try(parse_literal().map(Expression::Lit)),
 			try(op1_parse),
 			try((token(Token::TokenParenOpen), parse_exp(), token(Token::TokenParenClose)).map(|x| x.1)),
-			try(funcall_parse),
-			try((token(Token::TokenParenOpen), parse_exp(), token(Token::TokenComma), parse_exp(), token(Token::TokenParenClose)).map(|(_, l, _, r, _)| Expression::Tuple(Box::new(l), Box::new(r))))
+			try(parse_funcall()),
+			try((token(Token::TokenParenOpen), parse_exp(), token(Token::TokenComma), parse_exp(), token(Token::TokenParenClose)).map(|(_, l, _, r, _)| Expression::Tuple(Box::new(l), Box::new(r)))),
+			try((parse_identifier(), parse_field()).map(|(i, fs)| Expression::Ident(i, fs)))
 		)
+	}
+}
+
+parser!{
+	fn parse_funcall[I]()(I) -> Expression
+	  where [I: Stream<Item=Token>]
+	{
+		let actargs_parse = (parse_exp(), many((token(Token::TokenComma), parse_exp()).map(|x| x.1)))
+			.map(|(exp, mut exps): (Expression, Vec<Expression>)| { exps.push(exp); exps } );
+
+		(parse_identifier(), token(Token::TokenParenOpen), optional(actargs_parse), token(Token::TokenParenClose)).map(|(ident, _, actargs, _)| match actargs {
+			Some(x) => Expression::FunCall(ident, x),
+			_ => Expression::FunCall(ident, Vec::new())
+		})
 	}
 }
 
@@ -259,29 +264,145 @@ parser!{
 			token(Token::TokenBraceClose)
 		).map(|(_, _, exp, _, _, stmts, _)| Statement::While(exp, stmts));
 
-		let assignment_parse = (parse_identifier(), parse_field(), token(Token::TokenEquals), parse_exp(), token(Token::TokenSemiColon)).
-		map(|(ident, fields, _, exp, _)| Statement::Assignment(ident, fields, exp));
+		let assignment_parse = (parse_identifier(), parse_field(), token(Token::TokenEquals), parse_exp(), token(Token::TokenSemiColon))
+			.map(|(ident, fields, _, exp, _)| Statement::Assignment(ident, fields, exp));
 
 		let return_parse = (token(Token::TokenReturn), optional(parse_exp()), token(Token::TokenSemiColon))
 			.map(|(_, exp, _)| Statement::Return(exp));
-
-		let actargs_parse = (parse_exp(), many((token(Token::TokenComma), parse_exp()).map(|x| x.1)))
-				.map(|(exp, mut exps): (Expression, Vec<Expression>)| { exps.push(exp); exps } );
-		let funcall_parse = (parse_identifier(), token(Token::TokenParenOpen), optional(actargs_parse), token(Token::TokenParenClose)).map(|(ident, _, actargs, _)| match actargs {
-			Some(x) => Expression::FunCall(ident, x),
-			_ => Expression::FunCall(ident, Vec::new())
-		});
 
 		choice!(
 			try(if_parser),
 			try(while_parse),
 			try(assignment_parse),
-			try((funcall_parse, token(Token::TokenSemiColon)).map(|(func, _)| Statement::FunCall(func))),
+			try((parse_funcall(), token(Token::TokenSemiColon)).map(|(func, _)| Statement::FunCall(func))),
 			try(return_parse)
 		)
 	}
 }
 
+parser!{
+	fn parse_funtype[I]()(I) -> Type
+	  where [I: Stream<Item=Token>]
+	{
+		let parse_rettype = choice!(
+			token(Token::TokenVoid).map(|_| Type::TVoid),
+			parse_type()
+		);
+
+		(
+			many(parse_type()),
+			token(Token::TokenArrow),
+			parse_rettype
+		).map(|(ftypes, _, rettype)| Type::TArrow(ftypes, Box::new(rettype)))
+	}
+}
+
+parser!{
+	fn parse_type[I]()(I) -> Type
+	  where [I: Stream<Item=Token>]
+	{
+		let tuple_parser = (token(Token::TokenParenOpen),
+			parse_type(),
+			token(Token::TokenComma),
+			parse_type(),
+			token(Token::TokenParenClose))
+			.map(|t| Type::TTuple(Box::new(t.1), Box::new(t.3)));
+
+		let list_parser = (token(Token::TokenBracketOpen),
+			parse_type(),
+			token(Token::TokenBracketClose))
+			.map(|t| Type::TList(Box::new(t.1)));
+
+		choice!(
+			try(token(Token::TokenIntKeyword).map(|_| Type::TInt)),
+			try(token(Token::TokenBoolKeyword).map(|_| Type::TBool)),
+			try(token(Token::TokenCharKeyword).map(|_| Type::TChar)),
+			try(tuple_parser),
+			try(list_parser),
+			try(parse_identifier().map(Type::TIdent))
+		)
+	}
+}
+
+parser!{
+	fn parse_vardecl[I]()(I) -> Variable
+	  where [I: Stream<Item=Token>]
+	{
+		let var_type = choice!(
+			token(Token::TokenVar).map(|_| None),
+			parse_type().map(Some)
+		);
+
+		(
+			var_type,
+			parse_identifier(),
+			token(Token::TokenEquals),
+			parse_exp(),
+			token(Token::TokenSemiColon)
+		).map(|(vtype, ident, _, exp, _)| Variable {
+			name: ident,
+			vtype: vtype,
+			value: exp
+		})
+	}
+}
+
+parser!{
+	fn parse_fundecl[I]()(I) -> Function
+	  where [I: Stream<Item=Token>]
+	{
+		(
+			parse_identifier(),
+			token(Token::TokenParenOpen),
+			sep_by(parse_identifier(), token(Token::TokenComma)),
+			token(Token::TokenParenClose),
+			optional((token(Token::TokenDoubleColon), parse_funtype()).map(|t| t.1)),
+			token(Token::TokenBraceOpen),
+			many(parse_vardecl()),
+			many1(parse_statement()),
+			token(Token::TokenBraceClose)
+		).map(|(ident, _, fargs, _, funtype, _, vardecls, stmts, _)| Function {
+			name: ident,
+			args: fargs,
+			ftype: funtype,
+			vars: vardecls,
+			stmts: stmts
+		})
+	}
+}
+
+parser!{
+	fn parse_spl[I]()(I) -> SPL
+	  where [I: Stream<Item=Token>]
+	{
+		// This is essentially an Either which Rust does not have by default
+		enum Decl {
+			Var(Variable),
+			Fun(Function)
+		};
+
+		let parse_decl = choice!(
+			try(parse_vardecl().map(Decl::Var)),
+			try(parse_fundecl().map(Decl::Fun))
+		);
+
+		many1(parse_decl).map(|decls: Vec<Decl>| {
+			let mut vars = Vec::new();
+			let mut funs = Vec::new();
+			for decl in decls {
+				match decl {
+					Decl::Var(var) => vars.push(var),
+					Decl::Fun(fun) => funs.push(fun)
+				}
+			}
+			SPL {
+				vars: vars,
+				funs: funs
+			}
+		})
+	}
+}
+
 pub fn parse(tokens: &[Token]) {
-	println!("{:?}", (parse_statement()).parse(tokens));
+	println!("{:?}", parse_spl().parse(tokens));
 }

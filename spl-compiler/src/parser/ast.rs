@@ -2,24 +2,24 @@ pub type Ident = String;
 
 #[derive(Debug)]
 pub struct SPL {
-	vars: Vec<Variable>,
-	funs: Vec<Function>
+	pub vars: Vec<Variable>,
+	pub funs: Vec<Function>
 }
 
 #[derive(Debug)]
 pub struct Variable {
-	name: Ident,
-	vtype: Option<Type>,
-	value: Expression
+	pub name: Ident,
+	pub vtype: Option<Type>,
+	pub value: Expression
 }
 
 #[derive(Debug)]
 pub struct Function {
-	name: Ident,
-	args: Vec<Ident>,
-	ftype: Option<Type>,
-	vars: Vec<Variable>,
-	stmts: Vec<Statement>
+	pub name: Ident,
+	pub args: Vec<Ident>,
+	pub ftype: Option<Type>,
+	pub vars: Vec<Variable>,
+	pub stmts: Vec<Statement>
 }
 
 #[derive(Debug)]
@@ -39,7 +39,7 @@ pub enum Statement {
 	If(Expression, Vec<Statement>, Vec<Statement>),
 	While(Expression, Vec<Statement>),
 	Assignment(Ident, Vec<Field>, Expression),
-	FunCall(Expression), // To prevent code duplication we simply treat this as an expression
+	FunCall(Expression),
 	Return(Option<Expression>)
 }
 

@@ -35,13 +35,24 @@ fn main() {
 				line_number, file_contents.chars().collect::<Vec<char>>()[index], line);
 			return ()
 		},
-		Ok(t) => tokens = scanner_postprocessing(t),
+		Ok(t) => tokens = scanner_postprocessing(t, &file_contents),
 	}
 
 	println!("Produced tokens: {:?}", tokens);
 
 	let only_tokens: Vec<scanner::Token> = tokens.iter().map(|x| (x.0).clone()).collect();
-	parser::parse(&only_tokens);
+	let spl: parser::SPL;
+	match parser::parse(&only_tokens) {
+		Err((token, index)) => {
+			let (line_number, line) = index_to_context(&file_contents, tokens[index].1);
+			println!("Parser error at line {}. Unexpected token {:?}:\n{}",
+				line_number, token, line);
+			return ()
+		},
+		Ok(x) => spl = x
+	}
+
+	println!("Produced AST: {:?}", spl);
 }
 
 // Given an index it returns the line number and actual line the index is in
@@ -60,12 +71,18 @@ fn index_to_context(input: &str, index: usize) -> (usize, String) {
 }
 
 // Converts each token length pair to token index pair. Additionally removes comments as we do not care about those.
-fn scanner_postprocessing(mut input: Vec<(scanner::Token, usize)>) -> Vec<(scanner::Token, usize)> {
+fn scanner_postprocessing(mut input: Vec<(scanner::Token, usize)>, file_contents: &str) -> Vec<(scanner::Token, usize)> {
 	let mut accumulator: usize = 0;
 	for pair in &mut input {
 		let temp = pair.1;
 		pair.1 = accumulator;
 		accumulator += temp;
+	}
+
+	// Some tokens have whitespace characters before them. We trim this whitespace here
+	for pair in &mut input {
+		let split_string = file_contents.split_at(pair.1).1;
+		pair.1 = pair.1 + (split_string.len() - split_string.chars().skip_while(|c| c.is_whitespace()).collect::<Vec<char>>().len())
 	}
 
 	input.into_iter().filter(|x| match x.0 {

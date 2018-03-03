@@ -422,9 +422,9 @@ pub fn parse(tokens: &[Token]) -> Result<SPL, (Token, usize)> {
 	match parse_spl().parse(tokens) {
 		Ok(x) => Ok(x.0),
 		Err(e) => Err((
-			e.errors.iter().filter_map(|err| match err {
-				&Error::Unexpected(ref x) => match x {
-					&super::combine::primitives::Info::Token(ref t) => Some(t),
+			e.errors.iter().filter_map(|err| match *err {
+				Error::Unexpected(ref x) => match *x {
+					super::combine::primitives::Info::Token(ref t) => Some(t),
 					_ => None
 				},
 				_ => None

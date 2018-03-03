@@ -82,7 +82,7 @@ fn scanner_postprocessing(mut input: Vec<(scanner::Token, usize)>, file_contents
 	// Some tokens have whitespace characters before them. We trim this whitespace here
 	for pair in &mut input {
 		let split_string = file_contents.split_at(pair.1).1;
-		pair.1 = pair.1 + (split_string.len() - split_string.chars().skip_while(|c| c.is_whitespace()).collect::<Vec<char>>().len())
+		pair.1 += split_string.len() - split_string.chars().skip_while(|c| c.is_whitespace()).collect::<Vec<char>>().len()
 	}
 
 	input.into_iter().filter(|x| match x.0 {

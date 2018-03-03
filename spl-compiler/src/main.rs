@@ -52,7 +52,7 @@ fn main() {
 		Ok(x) => spl = x
 	}
 
-	println!("Produced AST: {:?}", spl);
+	println!("Produced AST:\n{}", spl);
 }
 
 // Given an index it returns the line number and actual line the index is in

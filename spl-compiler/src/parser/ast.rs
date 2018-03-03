@@ -2,20 +2,17 @@ use std::fmt;
 
 pub type Ident = String;
 
-#[derive(Debug)]
 pub struct SPL {
 	pub vars: Vec<Variable>,
 	pub funs: Vec<Function>
 }
 
-#[derive(Debug)]
 pub struct Variable {
 	pub name: Ident,
 	pub vtype: Option<Type>,
 	pub value: Expression
 }
 
-#[derive(Debug)]
 pub struct Function {
 	pub name: Ident,
 	pub args: Vec<Ident>,
@@ -24,7 +21,6 @@ pub struct Function {
 	pub stmts: Vec<Statement>
 }
 
-#[derive(Debug)]
 pub enum Type {
 	TInt,
 	TBool,
@@ -36,7 +32,6 @@ pub enum Type {
 	TIdent(Ident)
 }
 
-#[derive(Debug)]
 pub enum Statement {
 	If(Expression, Vec<Statement>, Vec<Statement>),
 	While(Expression, Vec<Statement>),
@@ -45,7 +40,6 @@ pub enum Statement {
 	Return(Option<Expression>)
 }
 
-#[derive(Debug)]
 pub enum Expression {
 	Ident(Ident, Vec<Field>),
 	Op2(Box<Expression>, Op2, Box<Expression>),
@@ -55,7 +49,6 @@ pub enum Expression {
 	Tuple(Box<Expression>, Box<Expression>)
 }
 
-#[derive(Debug)]
 pub enum Field {
 	Head,
 	Tail,
@@ -63,7 +56,6 @@ pub enum Field {
 	Second
 }
 
-#[derive(Debug)]
 pub enum Op2 {
 	Addition,
 	Subtraction,
@@ -81,13 +73,11 @@ pub enum Op2 {
 	Cons
 }
 
-#[derive(Debug)]
 pub enum Op1 {
 	Not,
 	Negation
 }
 
-#[derive(Debug)]
 pub enum Literal {
 	Int(i64),
 	Char(char),
@@ -97,6 +87,61 @@ pub enum Literal {
 
 fn indent(input: String) -> String {
 	input.lines().map(|x| format!("\t{}\n", x)).collect()
+}
+
+impl fmt::Display for SPL {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}",
+			format!("{}{}",
+				self.vars.iter().map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat(),
+				self.funs.iter().map(|x| format!("{}\n\n", x)).collect::<Vec<String>>().concat()
+			).trim() // Remove superfluous newlines
+		)
+	}
+}
+
+impl fmt::Display for Variable {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{} {} = {};",
+			match self.vtype {
+				Some(ref x) => format!("{}", x),
+				None => String::from("var")
+			},
+			self.name,
+			self.value
+		)
+	}
+}
+
+impl fmt::Display for Function {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}({}){} {{\n{}{}}}",
+			self.name,
+			self.args.iter().map(|x| format!("{}", x)).collect::<Vec<String>>().join(", "),
+			match self.ftype {
+				Some(ref x) => format!(" :: {}", x),
+				None => String::new()
+			},
+			indent(self.vars.iter().map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat()),
+			indent(self.stmts.iter().map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat())
+		)
+	}
+}
+
+impl fmt::Display for Type {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}", match *self {
+			Type::TInt => String::from("Int"),
+			Type::TBool => String::from("Bool"),
+			Type::TChar => String::from("Char"),
+			Type::TVoid => String::from("Void"),
+			Type::TTuple(ref l, ref r) => format!("({}, {})", l, r),
+			Type::TList(ref t) => format!("[{}]", t),
+			Type::TArrow(ref ftypes, ref rtype) => format!("{}-> {}",
+				ftypes.iter().map(|x| format!("{} ", x)).collect::<Vec<String>>().concat(), rtype),
+			Type::TIdent(ref ident) => ident.clone()
+		})
+	}
 }
 
 impl fmt::Display for Statement {
@@ -113,7 +158,7 @@ impl fmt::Display for Statement {
 				),
 			Statement::While(ref exp, ref stmts) => format!("while({}) {{\n{}}}", exp,
 				indent(stmts.iter().map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat())),
-			Statement::Assignment(ref ident, ref fields, ref exp) => format!("{}{} = {}", ident,
+			Statement::Assignment(ref ident, ref fields, ref exp) => format!("{}{} = {};", ident,
 				fields.iter().map(|x| format!("{}", x)).collect::<Vec<String>>().concat(), exp),
 			Statement::FunCall(ref exp) => format!("{};", exp),
 			Statement::Return(ref exp) => match *exp {
@@ -133,7 +178,7 @@ impl fmt::Display for Expression {
 			Expression::Op1(ref op1, ref exp) => format!("{}{}", op1, exp),
 			Expression::Lit(ref lit) => format!("{}", lit),
 			Expression::FunCall(ref ident, ref exps) => format!("{}({})", ident,
-				exps.iter().map(|x| format!("{}", x)).collect::<Vec<String>>().join(",")),
+				exps.iter().map(|x| format!("{}", x)).collect::<Vec<String>>().join(", ")),
 			Expression::Tuple(ref l, ref r) => format!("({}, {})", l, r)
 		})
 	}

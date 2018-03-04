@@ -56,6 +56,7 @@ pub enum Field {
 	Second
 }
 
+#[derive(PartialEq)]
 pub enum Op2 {
 	Addition,
 	Subtraction,
@@ -101,6 +102,14 @@ fn priority(op: &Op2) -> usize {
 	}
 }
 
+fn is_left_associative(op: &Op2) -> bool {
+	match *op {
+		Op2::Addition | Op2::Subtraction
+			| Op2::Multiplication | Op2::Division
+			| Op2::Modulo => true,
+		_ => false
+	}
+}
 fn indent(input: &str) -> String {
 	input.lines().map(|x| format!("\t{}\n", x)).collect()
 }
@@ -203,7 +212,8 @@ impl fmt::Display for Expression {
 				op,
 				match **exp2 {
 					Expression::Op2(_, ref right_op, _) =>
-						if priority(right_op) > priority(op) {
+						if priority(right_op) > priority(op)
+							|| (priority(right_op) == priority(op) && is_left_associative(op)) {
 								format!("({})", exp2)
 						} else {
 							format!("{}", exp2)

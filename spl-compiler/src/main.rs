@@ -38,8 +38,6 @@ fn main() {
 		Ok(t) => tokens = scanner_postprocessing(t, &file_contents),
 	}
 
-	println!("Produced tokens: {:?}", tokens);
-
 	let only_tokens: Vec<scanner::Token> = tokens.iter().map(|x| (x.0).clone()).collect();
 	let spl: parser::SPL;
 	match parser::parse(&only_tokens) {
@@ -52,7 +50,7 @@ fn main() {
 		Ok(x) => spl = x
 	}
 
-	println!("Produced AST:\n{}", spl);
+	println!("Parsed program pretty printed:\n{}", spl);
 }
 
 // Given an index it returns the line number and actual line the index is in

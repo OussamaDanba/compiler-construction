@@ -216,7 +216,11 @@ impl fmt::Display for Expression {
 					_ => format!("{}", exp2)
 				})
 			},
-			Expression::Op1(ref op1, ref exp) => format!("{}{}", op1, exp),
+			Expression::Op1(ref op1, ref exp) => format!("{}", match **exp {
+				// We need this otherwise we end up with "!a && b" instead of "!(a && b)".
+				Expression::Op2(_, _, _) => format!("{}({})", op1, exp),
+				_ => format!("{}{}", op1, exp)
+			}),
 			Expression::Lit(ref lit) => format!("{}", lit),
 			Expression::FunCall(ref ident, ref exps) => format!("{}({})", ident,
 				exps.iter().map(|x| format!("{}", x)).collect::<Vec<String>>().join(", ")),

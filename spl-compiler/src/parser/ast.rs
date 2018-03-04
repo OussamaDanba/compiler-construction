@@ -89,24 +89,19 @@ pub enum Literal {
 // superfluous parenthesis during pretty printing.
 fn priority(op: &Op2) -> usize {
 	match *op {
-		Op2::Addition => 2,
-		Op2::Subtraction => 2,
-		Op2::Multiplication => 3,
-		Op2::Division => 3,
+		Op2::Addition | Op2::Subtraction => 2,
+		Op2::Multiplication | Op2::Division => 3,
 		Op2::Modulo => 1,
-		Op2::Equals => 4,
-		Op2::LessThan => 4,
-		Op2::GreaterThan => 4,
-		Op2::LessEquals => 4,
-		Op2::GreaterEquals => 4,
-		Op2::NotEquals => 4,
+		Op2::Equals | Op2::LessThan
+			| Op2::GreaterThan | Op2::LessEquals
+			| Op2::GreaterEquals | Op2::NotEquals=> 4,
 		Op2::And => 6,
 		Op2::Or => 5,
 		Op2::Cons => 7
 	}
 }
 
-fn indent(input: String) -> String {
+fn indent(input: &str) -> String {
 	input.lines().map(|x| format!("\t{}\n", x)).collect()
 }
 
@@ -143,8 +138,8 @@ impl fmt::Display for Function {
 				Some(ref x) => format!(" :: {}", x),
 				None => String::new()
 			},
-			indent(self.vars.iter().map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat()),
-			indent(self.stmts.iter().map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat())
+			indent(&self.vars.iter().map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat()),
+			indent(&self.stmts.iter().map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat())
 		)
 	}
 }
@@ -169,16 +164,16 @@ impl fmt::Display for Statement {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", match *self {
 			Statement::If(ref exp, ref if_stmts, ref else_stmts) =>
-				format!("if({}) {{\n{}}}{}", exp, indent(if_stmts.iter()
+				format!("if({}) {{\n{}}}{}", exp, indent(&if_stmts.iter()
 					.map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat()),
 						if else_stmts.is_empty() {
 							String::new()
 						} else {
-							format!(" else {{\n{}}}", indent(else_stmts.iter().map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat()))
+							format!(" else {{\n{}}}", indent(&else_stmts.iter().map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat()))
 						}
 				),
 			Statement::While(ref exp, ref stmts) => format!("while({}) {{\n{}}}", exp,
-				indent(stmts.iter().map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat())),
+				indent(&stmts.iter().map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat())),
 			Statement::Assignment(ref ident, ref fields, ref exp) => format!("{}{} = {};", ident,
 				fields.iter().map(|x| format!("{}", x)).collect::<Vec<String>>().concat(), exp),
 			Statement::FunCall(ref exp) => format!("{};", exp),

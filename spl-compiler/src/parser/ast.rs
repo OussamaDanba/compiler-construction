@@ -85,6 +85,27 @@ pub enum Literal {
 	EmptyList
 }
 
+// We need to encode the priorities somewhere in order to prevent
+// superfluous parenthesis during pretty printing.
+fn priority(op: &Op2) -> usize {
+	match *op {
+		Op2::Addition => 2,
+		Op2::Subtraction => 2,
+		Op2::Multiplication => 3,
+		Op2::Division => 3,
+		Op2::Modulo => 1,
+		Op2::Equals => 4,
+		Op2::LessThan => 4,
+		Op2::GreaterThan => 4,
+		Op2::LessEquals => 4,
+		Op2::GreaterEquals => 4,
+		Op2::NotEquals => 4,
+		Op2::And => 6,
+		Op2::Or => 5,
+		Op2::Cons => 7
+	}
+}
+
 fn indent(input: String) -> String {
 	input.lines().map(|x| format!("\t{}\n", x)).collect()
 }
@@ -174,7 +195,27 @@ impl fmt::Display for Expression {
 		write!(f, "{}", match *self {
 			Expression::Ident(ref ident, ref fields) =>	format!("{}{}", ident,
 				fields.iter().map(|x| format!("{}", x)).collect::<Vec<String>>().concat()),
-			Expression::Op2(_, _, _) => String::new(), //TODO: Implement with correct parenthesis
+			Expression::Op2(ref exp1, ref op, ref exp2) => {
+				format!("{} {} {}", match **exp1 {
+					Expression::Op2(_, ref left_op, _) =>
+						if priority(left_op) > priority(op) {
+								format!("({})", exp1)
+						} else {
+							format!("{}", exp1)
+						},
+					_ => format!("{}", exp1)
+				},
+				op,
+				match **exp2 {
+					Expression::Op2(_, ref right_op, _) =>
+						if priority(right_op) > priority(op) {
+								format!("({})", exp2)
+						} else {
+							format!("{}", exp2)
+						},
+					_ => format!("{}", exp2)
+				})
+			},
 			Expression::Op1(ref op1, ref exp) => format!("{}{}", op1, exp),
 			Expression::Lit(ref lit) => format!("{}", lit),
 			Expression::FunCall(ref ident, ref exps) => format!("{}({})", ident,

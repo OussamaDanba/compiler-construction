@@ -1,0 +1,4 @@
+something(n) :: Int -> Int {
+    return -n - -1;
+    return -1 - -1;
+}

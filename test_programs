@@ -1,4 +1,16 @@
+// The first one is parsed as something you might not expect.
+// Parsed as -(n - -1). This is an artifact of the way left-recursion was solved.
+// Note that it does conform to the grammar.
 something(n) :: Int -> Int {
     return -n - -1;
     return -1 - -1;
+}
+
+// Parser is independent of layout. Note that I require if to have curly braces.
+abs ( n ) :: Int -> Int { if (n < 0) { return -n;} else { return n; } }
+
+// Associativity correctly parsed and pretty printer doesn't print too many
+// unnecessary parenthesis.
+something2(n) :: -> Int {
+    return 5-4-3*3-2-1;
 }

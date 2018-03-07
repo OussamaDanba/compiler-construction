@@ -1,9 +1,9 @@
-// The first one is parsed as something you might not expect.
-// Parsed as -(n - -1). This is an artifact of the way left-recursion was solved.
-// Note that it does conform to the grammar.
+// Parsed as expected! Was tricky because of the grammar transformation.
 something(n) :: Int -> Int {
     return -n - -1;
     return -1 - -1;
+    return !a && b;
+    return !(a && b);
 }
 
 // Parser is independent of layout. Note that I require if to have curly braces.

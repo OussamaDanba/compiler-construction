@@ -214,7 +214,7 @@ parser!{
 			token(Token::TokenMinus)
 		);
 
-		let op1_parse = (op1_token, parse_exp()).map(|(token, exp)| match token {
+		let op1_parse = (op1_token, parse_expression_no_op2()).map(|(token, exp)| match token {
 			Token::TokenNot => Expression::Op1(Op1::Not, Box::new(exp)),
 			Token::TokenMinus => Expression::Op1(Op1::Negation, Box::new(exp)),
 			_ => panic!("Unreachable")

@@ -2,17 +2,20 @@ use std::fmt;
 
 pub type Ident = String;
 
+#[derive(Debug)]
 pub struct SPL {
 	pub vars: Vec<Variable>,
 	pub funs: Vec<Function>
 }
 
+#[derive(Debug)]
 pub struct Variable {
 	pub name: Ident,
 	pub vtype: Option<Type>,
 	pub value: Expression
 }
 
+#[derive(Debug)]
 pub struct Function {
 	pub name: Ident,
 	pub args: Vec<Ident>,
@@ -21,6 +24,7 @@ pub struct Function {
 	pub stmts: Vec<Statement>
 }
 
+#[derive(Debug)]
 pub enum Type {
 	TInt,
 	TBool,
@@ -32,6 +36,7 @@ pub enum Type {
 	TIdent(Ident)
 }
 
+#[derive(Debug)]
 pub enum Statement {
 	If(Expression, Vec<Statement>, Vec<Statement>),
 	While(Expression, Vec<Statement>),
@@ -40,6 +45,7 @@ pub enum Statement {
 	Return(Option<Expression>)
 }
 
+#[derive(Debug)]
 pub enum Expression {
 	Ident(Ident, Vec<Field>),
 	Op2(Box<Expression>, Op2, Box<Expression>),
@@ -49,6 +55,7 @@ pub enum Expression {
 	Tuple(Box<Expression>, Box<Expression>)
 }
 
+#[derive(Debug)]
 pub enum Field {
 	Head,
 	Tail,
@@ -56,7 +63,7 @@ pub enum Field {
 	Second
 }
 
-#[derive(PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Op2 {
 	Addition,
 	Subtraction,
@@ -74,11 +81,13 @@ pub enum Op2 {
 	Cons
 }
 
+#[derive(Debug)]
 pub enum Op1 {
 	Not,
 	Negation
 }
 
+#[derive(Debug)]
 pub enum Literal {
 	Int(i64),
 	Char(char),

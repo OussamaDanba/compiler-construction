@@ -72,15 +72,11 @@ parser!{
 	fn parse_exp[I]()(I) -> Expression
 	  where [I: Stream<Item=Token>]
 	{
-		(parse_exp2(), many::<Vec<(_, Expression)>, _>((token(Token::TokenMod), parse_exp2())))
-			.map(|(l, r)| {
-				if r.is_empty() {
-					l
-				} else {
-					let x: Vec<(Op2, Expression)> = r.into_iter().map(|(_, x)| (Op2::Modulo, x)).collect();
-					x.into_iter().fold(l, |acc, (op, exp)| Expression::Op2(Box::new(acc), op, Box::new(exp)))
-				}
-			})
+		(parse_exp2(), optional((token(Token::TokenDoublePipe), parse_exp())))
+			.map(|(l, r)| match r {
+				Some((_, x)) => Expression::Op2(Box::new(l), Op2::Or, Box::new(x)),
+				_ => l
+		})
 	}
 }
 
@@ -88,58 +84,16 @@ parser!{
 	fn parse_exp2[I]()(I) -> Expression
 	  where [I: Stream<Item=Token>]
 	{
-		let allowed_tokens = choice!(
-			token(Token::TokenPlus),
-			token(Token::TokenMinus)
-		);
-
-		let mapping = |x| match x {
-			Token::TokenPlus => Op2::Addition,
-			Token::TokenMinus => Op2::Subtraction,
-			_ => panic!("Unreachable")
-		};
-
-		(parse_exp3(), many::<Vec<(_, Expression)>, _>((allowed_tokens, parse_exp3())))
-			.map(|(l, r)| {
-				if r.is_empty() {
-					l
-				} else {
-					let x: Vec<(Op2, Expression)> = r.into_iter().map(|(token, x)| (mapping(token), x)).collect();
-					x.into_iter().fold(l, |acc, (op, exp)| Expression::Op2(Box::new(acc), op, Box::new(exp)))
-				}
-			})
+		(parse_exp3(), optional((token(Token::TokenDoubleAmp), parse_exp2())))
+			.map(|(l, r)| match r {
+				Some((_, x)) => Expression::Op2(Box::new(l), Op2::And, Box::new(x)),
+				_ => l
+		})
 	}
 }
 
 parser!{
 	fn parse_exp3[I]()(I) -> Expression
-	  where [I: Stream<Item=Token>]
-	{
-		let allowed_tokens = choice!(
-			token(Token::TokenMult),
-			token(Token::TokenDiv)
-		);
-
-		let mapping = |x| match x {
-			Token::TokenMult => Op2::Multiplication,
-			Token::TokenDiv => Op2::Division,
-			_ => panic!("Unreachable")
-		};
-
-		(parse_exp4(), many::<Vec<(_, Expression)>, _>((allowed_tokens, parse_exp4())))
-			.map(|(l, r)| {
-				if r.is_empty() {
-					l
-				} else {
-					let x: Vec<(Op2, Expression)> = r.into_iter().map(|(token, x)| (mapping(token), x)).collect();
-					x.into_iter().fold(l, |acc, (op, exp)| Expression::Op2(Box::new(acc), op, Box::new(exp)))
-				}
-			})
-	}
-}
-
-parser!{
-	fn parse_exp4[I]()(I) -> Expression
 	  where [I: Stream<Item=Token>]
 	{
 		let allowed_tokens = choice!(
@@ -161,9 +115,21 @@ parser!{
 			_ => panic!("Unreachable")
 		};
 
-		(parse_exp5(), optional((allowed_tokens, parse_exp4())))
+		(parse_exp4(), optional((allowed_tokens, parse_exp3())))
 			.map(|(l, r)| match r {
 				Some((token, x)) => Expression::Op2(Box::new(l), mapping(token), Box::new(x)),
+				_ => l
+		})
+	}
+}
+
+parser!{
+	fn parse_exp4[I]()(I) -> Expression
+	  where [I: Stream<Item=Token>]
+	{
+		(parse_exp5(), optional((token(Token::TokenColon), parse_exp4())))
+			.map(|(l, r)| match r {
+				Some((_, x)) => Expression::Op2(Box::new(l), Op2::Cons, Box::new(x)),
 				_ => l
 		})
 	}
@@ -173,11 +139,26 @@ parser!{
 	fn parse_exp5[I]()(I) -> Expression
 	  where [I: Stream<Item=Token>]
 	{
-		(parse_exp6(), optional((token(Token::TokenDoublePipe), parse_exp5())))
-			.map(|(l, r)| match r {
-				Some((_, x)) => Expression::Op2(Box::new(l), Op2::Or, Box::new(x)),
-				_ => l
-		})
+		let allowed_tokens = choice!(
+			token(Token::TokenPlus),
+			token(Token::TokenMinus)
+		);
+
+		let mapping = |x| match x {
+			Token::TokenPlus => Op2::Addition,
+			Token::TokenMinus => Op2::Subtraction,
+			_ => panic!("Unreachable")
+		};
+
+		(parse_exp6(), many::<Vec<(_, Expression)>, _>((allowed_tokens, parse_exp6())))
+			.map(|(l, r)| {
+				if r.is_empty() {
+					l
+				} else {
+					let x: Vec<(Op2, Expression)> = r.into_iter().map(|(token, x)| (mapping(token), x)).collect();
+					x.into_iter().fold(l, |acc, (op, exp)| Expression::Op2(Box::new(acc), op, Box::new(exp)))
+				}
+			})
 	}
 }
 
@@ -185,11 +166,26 @@ parser!{
 	fn parse_exp6[I]()(I) -> Expression
 	  where [I: Stream<Item=Token>]
 	{
-		(parse_exp7(), optional((token(Token::TokenDoubleAmp), parse_exp6())))
-			.map(|(l, r)| match r {
-				Some((_, x)) => Expression::Op2(Box::new(l), Op2::And, Box::new(x)),
-				_ => l
-		})
+		let allowed_tokens = choice!(
+			token(Token::TokenMult),
+			token(Token::TokenDiv)
+		);
+
+		let mapping = |x| match x {
+			Token::TokenMult => Op2::Multiplication,
+			Token::TokenDiv => Op2::Division,
+			_ => panic!("Unreachable")
+		};
+
+		(parse_exp7(), many::<Vec<(_, Expression)>, _>((allowed_tokens, parse_exp7())))
+			.map(|(l, r)| {
+				if r.is_empty() {
+					l
+				} else {
+					let x: Vec<(Op2, Expression)> = r.into_iter().map(|(token, x)| (mapping(token), x)).collect();
+					x.into_iter().fold(l, |acc, (op, exp)| Expression::Op2(Box::new(acc), op, Box::new(exp)))
+				}
+			})
 	}
 }
 
@@ -197,11 +193,15 @@ parser!{
 	fn parse_exp7[I]()(I) -> Expression
 	  where [I: Stream<Item=Token>]
 	{
-		(parse_expression_no_op2(), optional((token(Token::TokenColon), parse_exp7())))
-			.map(|(l, r)| match r {
-				Some((_, x)) => Expression::Op2(Box::new(l), Op2::Cons, Box::new(x)),
-				_ => l
-		})
+		(parse_expression_no_op2(), many::<Vec<(_, Expression)>, _>((token(Token::TokenMod), parse_expression_no_op2())))
+			.map(|(l, r)| {
+				if r.is_empty() {
+					l
+				} else {
+					let x: Vec<(Op2, Expression)> = r.into_iter().map(|(_, x)| (Op2::Modulo, x)).collect();
+					x.into_iter().fold(l, |acc, (op, exp)| Expression::Op2(Box::new(acc), op, Box::new(exp)))
+				}
+			})
 	}
 }
 

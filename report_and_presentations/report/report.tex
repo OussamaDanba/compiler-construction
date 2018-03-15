@@ -82,19 +82,19 @@
 
 <Stmt> = '\textbf{if}' '(' <Exp> ')' '\{' <Stmt>* '\}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
 
-<Exp> = <Exp2> [ '\%' <Exp> ]
+<Exp> = <Exp2> [ '||' <Exp> ]
 
-<Exp2> = <Exp3> [ ( '+' | '-' ) <Exp2> ]
+<Exp2> = <Exp3> [ '\&\&' <Exp2> ]
 
-<Exp3> = <Exp4> [ ( '*' | '/' ) <Exp3> ]
+<Exp3> = <Exp4> [ ( '==' | '\textless' | '\textgreater' | '\textless=' | '\textgreater=' | '!=' ) <Exp3> ]
 
-<Exp4> = <Exp5> [ ( '==' | '\textless' | '\textgreater' | '\textless=' | '\textgreater=' | '!=' ) <Exp4> ]
+<Exp4> = <Exp5> [ ':' <Exp4> ]
 
-<Exp5> = <Exp6> [ '||' <Exp5> ]
+<Exp5> = <Exp6> [ ( '+' | '-' ) <Exp5> ]
 
-<Exp6> = <Exp7> [ '\&\&' <Exp6> ]
+<Exp6> = <Exp7> [ ( '*' | '/' ) <Exp6> ]
 
-<Exp7> = <Exp8> [ ':' <Exp7> ]
+<Exp7> = <Exp8> [ '\%' <Exp7> ]
 
 <Exp8> = <id> <Field> \\| <Op1> <Exp> \\| <int> \\| <char> \\| '\textbf{False}' \\| '\textbf{True}' \\| '(' <Exp> ')' \\| <FunCall> \\| '[]' \\| '(' <Exp> ',' <Exp> ')'
 
@@ -121,48 +121,3 @@
 \subsection{Parser}
 
 \end{document}
-
-% non left recursive exp: (this exists as a backup)
-\begin{grammar}
-<SPL> = <Decl>+
-
-<Decl> = <VarDecl> \\| <FunDecl>
-
-<VarDecl> = ('\textbf{var}' | <Type>) <id> '=' <Exp> ';'
-
-<FunDecl> = <id> '(' [ <FArgs> ] ')' [ '::' <FunType> ] '\{' <VarDecl>* <Stmt>+ '\}'
-
-<RetType> = <Type> \\| '\textbf{Void}'
-
-<FunType> = [ <FTypes> ] '$\rightarrow$' <RetType>
-
-<FTypes> = <Type> [ <FTypes> ]
-
-<Type> = '\textbf{Int}' \\| '\textbf{Bool}' \\| '\textbf{Char}' \\| '(' <Type> ',' <Type> ')' \\| '[' <Type> ']' \\| <id>
-
-<FArgs> = <id> [ <FArgs> ',' ]
-
-<Stmt> = '\textbf{if}' '(' <Exp> ')' '\{' <Stmt>* '\}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
-
-<Exp> = <id> <Field> [ <Exp2> ] \\| <Op1> <Exp> [ <Exp2> ] \\| <int> [ <Exp2> ] \\| <char> [ <Exp2> ] \\| '\textbf{False}' [ <Exp2> ] \\| '\textbf{True}' [ <Exp2> ] \\| '(' <Exp> ')' [ <Exp2> ] \\| <FunCall> [ <Exp2> ] \\| '[]' [ <Exp2> ] \\| '(' <Exp> ',' <Exp> ')' [ <Exp2> ]
-
-<Exp2> = <Op2> <Exp>
-
-<Field> = <Field2>*
-
-<Field2> = '.' '\textbf{hd}' | '.' '\textbf{tl}' | '.' '\textbf{fst}' | '.' '\textbf{snd}'
-
-<FunCall> = <id> '(' [ <ActArgs> ] ')'
-
-<ActArgs> = <Exp> [ ',' <ActArgs> ]
-
-<Op2> = '+' | '-' | '*' | '/' | '\%' | '==' | '\textless' | '\textgreater' | '\textless=' | '\textgreater=' | '!=' | '\&\&' | '||' | ':'
-
-<Op1> = '!' | '-'
-
-<int> = [ '-' ] digit+
-
-<char> = ' alpha '
-
-<id> = alpha ( '\_' | alphaNum)*
-\end{grammar}

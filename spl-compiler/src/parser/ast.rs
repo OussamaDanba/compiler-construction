@@ -99,15 +99,15 @@ pub enum Literal {
 // superfluous parenthesis during pretty printing.
 fn priority(op: &Op2) -> usize {
 	match *op {
-		Op2::Addition | Op2::Subtraction => 2,
-		Op2::Multiplication | Op2::Division => 3,
-		Op2::Modulo => 1,
+		Op2::Addition | Op2::Subtraction => 5,
+		Op2::Multiplication | Op2::Division => 6,
+		Op2::Modulo => 7,
 		Op2::Equals | Op2::LessThan
 			| Op2::GreaterThan | Op2::LessEquals
-			| Op2::GreaterEquals | Op2::NotEquals=> 4,
-		Op2::And => 6,
-		Op2::Or => 5,
-		Op2::Cons => 7
+			| Op2::GreaterEquals | Op2::NotEquals=> 3,
+		Op2::And => 2,
+		Op2::Or => 1,
+		Op2::Cons => 4
 	}
 }
 

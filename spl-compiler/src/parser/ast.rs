@@ -11,7 +11,7 @@ pub struct SPL {
 #[derive(Debug)]
 pub struct Variable {
 	pub name: Ident,
-	pub vtype: Option<Type>,
+	pub vtype: Type,
 	pub value: Expression
 }
 
@@ -19,7 +19,7 @@ pub struct Variable {
 pub struct Function {
 	pub name: Ident,
 	pub args: Vec<Ident>,
-	pub ftype: Option<Type>,
+	pub ftype: Type,
 	pub vars: Vec<Variable>,
 	pub stmts: Vec<Statement>
 }
@@ -32,8 +32,7 @@ pub enum Type {
 	TVoid,
 	TTuple(Box<Type>, Box<Type>),
 	TList(Box<Type>),
-	TArrow(Vec<Type>, Box<Type>),
-	TIdent(Ident)
+	TArrow(Vec<Type>, Box<Type>)
 }
 
 #[derive(Debug)]
@@ -137,10 +136,7 @@ impl fmt::Display for SPL {
 impl fmt::Display for Variable {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{} {} = {};",
-			match self.vtype {
-				Some(ref x) => format!("{}", x),
-				None => String::from("var")
-			},
+			self.vtype,
 			self.name,
 			self.value
 		)
@@ -152,10 +148,7 @@ impl fmt::Display for Function {
 		write!(f, "{}({}){} {{\n{}{}}}",
 			self.name,
 			self.args.iter().map(|x| format!("{}", x)).collect::<Vec<String>>().join(", "),
-			match self.ftype {
-				Some(ref x) => format!(" :: {}", x),
-				None => String::new()
-			},
+			format!(" :: {}", self.ftype),
 			indent(&self.vars.iter().map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat()),
 			indent(&self.stmts.iter().map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat())
 		)
@@ -172,8 +165,7 @@ impl fmt::Display for Type {
 			Type::TTuple(ref l, ref r) => format!("({}, {})", l, r),
 			Type::TList(ref t) => format!("[{}]", t),
 			Type::TArrow(ref ftypes, ref rtype) => format!("{}-> {}",
-				ftypes.iter().map(|x| format!("{} ", x)).collect::<Vec<String>>().concat(), rtype),
-			Type::TIdent(ref ident) => ident.clone()
+				ftypes.iter().map(|x| format!("{} ", x)).collect::<Vec<String>>().concat(), rtype)
 		})
 	}
 }

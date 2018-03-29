@@ -332,8 +332,7 @@ parser!{
 			try(token(Token::TokenBoolKeyword).map(|_| Type::TBool)),
 			try(token(Token::TokenCharKeyword).map(|_| Type::TChar)),
 			try(tuple_parser),
-			try(list_parser),
-			try(parse_identifier().map(Type::TIdent))
+			try(list_parser)
 		)
 	}
 }
@@ -342,13 +341,8 @@ parser!{
 	fn parse_vardecl[I]()(I) -> Variable
 	  where [I: Stream<Item=Token>]
 	{
-		let var_type = choice!(
-			token(Token::TokenVar).map(|_| None),
-			parse_type().map(Some)
-		);
-
 		try((
-			var_type,
+			parse_type(),
 			parse_identifier(),
 			token(Token::TokenEquals),
 			parse_exp(),
@@ -370,12 +364,13 @@ parser!{
 			token(Token::TokenParenOpen),
 			sep_by(parse_identifier(), token(Token::TokenComma)),
 			token(Token::TokenParenClose),
-			optional((token(Token::TokenDoubleColon), parse_funtype()).map(|t| t.1)),
+			token(Token::TokenDoubleColon),
+			parse_funtype(),
 			token(Token::TokenBraceOpen),
 			many(parse_vardecl()),
 			many1(parse_statement()),
 			token(Token::TokenBraceClose)
-		).map(|(ident, _, fargs, _, funtype, _, vardecls, stmts, _)| Function {
+		).map(|(ident, _, fargs, _, _, funtype, _, vardecls, stmts, _)| Function {
 			name: ident,
 			args: fargs,
 			ftype: funtype,

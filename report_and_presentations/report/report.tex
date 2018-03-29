@@ -56,7 +56,7 @@
 <id> = alpha ( '\_' | alphaNum)*
 \end{grammar}
 
-% grammar that the parser parses
+% grammar that the parser initially parsed (changed during semantic analysis)
 % BasicType moved into Type for easiness
 % FArgs turned around to remove left recursion. (result is the same)
 % Field split into Field and Field2 to remove left recursion.
@@ -119,5 +119,67 @@
 \subsection{Scanner}
 
 \subsection{Parser}
+
+\section{Semantic Analysis}
+% Doing monomorphic type checking
+% Grammar parsed when starting semantic analysis
+% var keyword removed
+% FunType can no longer be optional
+% no identifier allowed in Type
+\begin{grammar}
+<SPL> = <Decl>+
+
+<Decl> = <VarDecl> \\| <FunDecl>
+
+<VarDecl> = <Type> <id> '=' <Exp> ';'
+
+<FunDecl> = <id> '(' [ <FArgs> ] ')' '::' <FunType> '\{' <VarDecl>* <Stmt>+ '\}'
+
+<RetType> = <Type> \\| '\textbf{Void}'
+
+<FunType> = [ <FTypes> ] '$\rightarrow$' <RetType>
+
+<FTypes> = <Type> [ <FTypes> ]
+
+<Type> = '\textbf{Int}' \\| '\textbf{Bool}' \\| '\textbf{Char}' \\| '(' <Type> ',' <Type> ')' \\| '[' <Type> ']'
+
+<FArgs> = <id> [ <FArgs> ',' ]
+
+<Stmt> = '\textbf{if}' '(' <Exp> ')' '\{' <Stmt>* '\}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
+
+<Exp> = <Exp2> [ '||' <Exp> ]
+
+<Exp2> = <Exp3> [ '\&\&' <Exp2> ]
+
+<Exp3> = <Exp4> [ ( '==' | '\textless' | '\textgreater' | '\textless=' | '\textgreater=' | '!=' ) <Exp3> ]
+
+<Exp4> = <Exp5> [ ':' <Exp4> ]
+
+<Exp5> = <Exp6> [ ( '+' | '-' ) <Exp5> ]
+
+<Exp6> = <Exp7> [ ( '*' | '/' ) <Exp6> ]
+
+<Exp7> = <Exp8> [ '\%' <Exp7> ]
+
+<Exp8> = <id> <Field> \\| <Op1> <Exp> \\| <int> \\| <char> \\| '\textbf{False}' \\| '\textbf{True}' \\| '(' <Exp> ')' \\| <FunCall> \\| '[]' \\| '(' <Exp> ',' <Exp> ')'
+
+<Field> = <Field2>*
+
+<Field2> = '.' '\textbf{hd}' | '.' '\textbf{tl}' | '.' '\textbf{fst}' | '.' '\textbf{snd}'
+
+<FunCall> = <id> '(' [ <ActArgs> ] ')'
+
+<ActArgs> = <Exp> [ ',' <ActArgs> ]
+
+<Op1> = '!' | '-'
+
+<int> = [ '-' ] digit+
+
+<char> = ' alpha '
+
+<id> = alpha ( '\_' | alphaNum)*
+\end{grammar}
+
+\section{Code Generation}
 
 \end{document}

@@ -24,7 +24,7 @@ pub struct Function {
 	pub stmts: Vec<Statement>
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum Type {
 	TInt,
 	TBool,
@@ -44,7 +44,7 @@ pub enum Statement {
 	Return(Option<Expression>)
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Expression {
 	Ident(Ident, Vec<Field>),
 	Op2(Box<Expression>, Op2, Box<Expression>),
@@ -54,7 +54,7 @@ pub enum Expression {
 	Tuple(Box<Expression>, Box<Expression>)
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Field {
 	Head,
 	Tail,
@@ -62,7 +62,7 @@ pub enum Field {
 	Second
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Op2 {
 	Addition,
 	Subtraction,
@@ -80,13 +80,13 @@ pub enum Op2 {
 	Cons
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Op1 {
 	Not,
 	Negation
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash)]
 pub enum Literal {
 	Int(i64),
 	Char(char),

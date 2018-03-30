@@ -7,6 +7,7 @@ use std::io::prelude::*;
 
 mod scanner;
 mod parser;
+mod semantic_analysis;
 
 fn main() {
 	// Read in specified file into a String. We don't want to panic here so we use exit.
@@ -50,7 +51,9 @@ fn main() {
 		Ok(x) => spl = x
 	}
 
-	println!("Parsed program pretty printed:\n{}", spl);
+	println!("Parsed program pretty printed:\n{}\n", spl);
+
+	println!("{:?}", semantic_analysis::semantic_analysis(&spl));
 }
 
 // Given an index it returns the line number and actual line the index is in

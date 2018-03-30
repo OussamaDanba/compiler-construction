@@ -44,7 +44,7 @@ pub enum Statement {
 	Return(Option<Expression>)
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug)]
 pub enum Expression {
 	Ident(Ident, Vec<Field>),
 	Op2(Box<Expression>, Op2, Box<Expression>),
@@ -54,7 +54,7 @@ pub enum Expression {
 	Tuple(Box<Expression>, Box<Expression>)
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug)]
 pub enum Field {
 	Head,
 	Tail,
@@ -62,7 +62,7 @@ pub enum Field {
 	Second
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug, PartialEq)]
 pub enum Op2 {
 	Addition,
 	Subtraction,
@@ -80,13 +80,13 @@ pub enum Op2 {
 	Cons
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug)]
 pub enum Op1 {
 	Not,
 	Negation
 }
 
-#[derive(Debug, PartialEq, Eq, Hash)]
+#[derive(Debug)]
 pub enum Literal {
 	Int(i64),
 	Char(char),

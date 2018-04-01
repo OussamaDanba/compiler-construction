@@ -127,12 +127,14 @@ fn priority(op: &Op2) -> usize {
 
 fn is_left_associative(op: &Op2) -> bool {
 	match *op {
-		Op2::Addition | Op2::Subtraction
-			| Op2::Multiplication | Op2::Division
-			| Op2::Modulo => true,
+		| Op2::Addition
+		| Op2::Subtraction
+		| Op2::Multiplication | Op2::Division
+		| Op2::Modulo => true,
 		_ => false
 	}
 }
+
 fn indent(input: &str) -> String {
 	input.lines().map(|x| format!("\t{}\n", x)).collect()
 }

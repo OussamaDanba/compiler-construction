@@ -84,6 +84,36 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 				Literal::EmptyList => Type::TList(Box::new(Type::TVoid))
 			}
 		),
+		Expression::FunCall(ref ident, ref exps) => {
+			match type_env.get(&(ident, true)) {
+				None => {
+					println!("Function call to undefined function {}.", ident);
+					None
+				},
+				Some(fun) => match **fun {
+					Type::TArrow(ref arg_types, ref ret_type) => {
+						if exps.len() != arg_types.len() {
+							println!("Attempting to call function {} with {} arguments while it has {}.", ident, exps.len(), arg_types.len());
+							return None;
+						}
+
+						for (exp_index, exp) in exps.iter().enumerate() {
+							let expression_type = analyse_expression(exp, type_env, expr_type)?;
+							expr_type.insert(exp as *const Expression, expression_type.clone());
+
+							if expression_type != arg_types[exp_index] {
+								println!("Function call to {}: argument expected type {} but got type {} from expression {}.",
+									ident, arg_types[exp_index], expression_type, exp);
+								return None;
+							}
+						}
+
+						Some((**ret_type).clone())
+					},
+					_ => unreachable!()
+				}
+			}
+		},
 		Expression::Tuple(ref left_exp, ref right_exp) => {
 			let left_expression_type = analyse_expression(left_exp, type_env, expr_type)?;
 			let right_expression_type = analyse_expression(right_exp, type_env, expr_type)?;

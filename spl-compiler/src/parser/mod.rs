@@ -349,7 +349,7 @@ parser!{
 			token(Token::TokenSemiColon)
 		)).map(|(vtype, ident, _, exp, _)| Variable {
 			name: ident,
-			vtype: vtype,
+			vtype,
 			value: exp
 		})
 	}
@@ -375,7 +375,7 @@ parser!{
 			args: fargs,
 			ftype: funtype,
 			vars: vardecls,
-			stmts: stmts
+			stmts
 		})
 	}
 }
@@ -405,8 +405,8 @@ parser!{
 				}
 			}
 			SPL {
-				vars: vars,
-				funs: funs
+				vars,
+				funs
 			}
 		})
 	}

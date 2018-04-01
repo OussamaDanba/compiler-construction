@@ -24,7 +24,7 @@ pub struct Function {
 	pub stmts: Vec<Statement>
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Eq, Clone)]
 pub enum Type {
 	TInt,
 	TBool,
@@ -33,6 +33,21 @@ pub enum Type {
 	TTuple(Box<Type>, Box<Type>),
 	TList(Box<Type>),
 	TArrow(Vec<Type>, Box<Type>)
+}
+
+impl PartialEq for Type {
+	fn eq(&self, other: &Type) -> bool {
+		match (self, other) {
+			| (&Type::TInt, &Type::TInt)
+			| (&Type::TBool, &Type::TBool)
+			| (&Type::TChar, &Type::TChar)
+			| (&Type::TVoid, &Type::TVoid) => true,
+			(&Type::TTuple(ref a, ref b), &Type::TTuple(ref c, ref d)) => a == c && b == d,
+			(&Type::TList(ref a), &Type::TList(ref b)) => a == b || **a == Type::TVoid || **b == Type::TVoid,
+			(&Type::TArrow(ref a, ref b), &Type::TArrow(ref c, ref d)) => a == c && b == d,
+			_ => false
+		}
+	}
 }
 
 #[derive(Debug)]

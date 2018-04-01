@@ -60,6 +60,14 @@ pub fn semantic_analysis(ast: &SPL) -> Option<HashMap<*const Expression, Type>> 
 
 fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Type>, expr_type: &mut HashMap<*const Expression, Type>) -> Option<Type> {
 	match *expr {
+		Expression::Ident(ref ident, ref fields) => {
+			// TODO
+			None
+		},
+		Expression::Op2(ref left_exp, ref op2, ref right_exp) => {
+			// TODO
+			None
+		},
 		Expression::Op1(ref op1, ref exp) => {
 			let expression_type = analyse_expression(exp, type_env, expr_type)?;
 			if (*op1 == Op1::Not && expression_type != Type::TBool)
@@ -93,7 +101,8 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 				Some(fun) => match **fun {
 					Type::TArrow(ref arg_types, ref ret_type) => {
 						if exps.len() != arg_types.len() {
-							println!("Attempting to call function {} with {} arguments while it has {}.", ident, exps.len(), arg_types.len());
+							println!("Attempting to call function {} with {} arguments while it has {}.",
+								ident, exps.len(), arg_types.len());
 							return None;
 						}
 
@@ -101,7 +110,7 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 							let expression_type = analyse_expression(exp, type_env, expr_type)?;
 							expr_type.insert(exp as *const Expression, expression_type.clone());
 
-							if expression_type != arg_types[exp_index] {
+							if expression_type != arg_types[exp_index] && ident != "print" {
 								println!("Function call to {}: argument expected type {} but got type {} from expression {}.",
 									ident, arg_types[exp_index], expression_type, exp);
 								return None;
@@ -123,6 +132,5 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 
 			Some(Type::TTuple(Box::new(left_expression_type), Box::new(right_expression_type)))
 		}
-		_ => None
 	}
 }

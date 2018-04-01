@@ -40,7 +40,7 @@ fn main() {
 	}
 
 	let only_tokens: Vec<scanner::Token> = tokens.iter().map(|x| (x.0).clone()).collect();
-	let spl: parser::SPL;
+	let mut spl: parser::SPL;
 	match parser::parse(&only_tokens) {
 		Err((token, index)) => {
 			let (line_number, line) = index_to_context(&file_contents, tokens[index].1);
@@ -52,6 +52,24 @@ fn main() {
 	}
 
 	println!("Parsed program pretty printed:\n{}\n", spl);
+
+	// Hardcode the functions print and isEmpty into the AST.
+	// Since we do not support polymorphic types we see "TVoid" as a placeholder to pass arity checking.
+	// We don't care about the bodies since those will be generated during code generation
+	spl.funs.push(parser::Function {
+		name: String::from("print"),
+		args: vec![String::from("a")],
+		ftype: parser::Type::TArrow(vec![parser::Type::TVoid], Box::new(parser::Type::TVoid)),
+		vars: Vec::new(),
+		stmts: Vec::new()
+	});
+	spl.funs.push(parser::Function {
+		name: String::from("isEmpty"),
+		args: vec![String::from("a")],
+		ftype: parser::Type::TArrow(vec![parser::Type::TList(Box::new(parser::Type::TVoid))], Box::new(parser::Type::TBool)),
+		vars: Vec::new(),
+		stmts: Vec::new()
+	});
 
 	println!("{:?}", semantic_analysis::semantic_analysis(&spl));
 }

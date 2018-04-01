@@ -58,15 +58,121 @@ pub fn semantic_analysis(ast: &SPL) -> Option<HashMap<*const Expression, Type>> 
 	Some(expr_type)
 }
 
+fn type_from_ident(ident_type: &Type, fields: &[Field]) -> Option<Type> {
+	if fields.is_empty() {
+		Some(ident_type.clone())
+	} else {
+		let first_field = fields.first()?;
+		let next_field = fields.split_at(1).1;
+		match *first_field {
+			Field::Head => match *ident_type {
+				Type::TList(ref list) => type_from_ident(list, next_field),
+				_ => {
+					println!("Cannot take head of list from type {}", ident_type);
+					None
+				}
+			},
+			Field::Tail => match *ident_type {
+				Type::TList(_) => type_from_ident(ident_type, next_field),
+				_ => {
+					println!("Cannot take tail of list from type {}", ident_type);
+					None
+				}
+			},
+			Field::First =>	match *ident_type {
+				Type::TTuple(ref first, _) => type_from_ident(first, next_field),
+				_ => {
+					println!("Cannot take first element from type {}", ident_type);
+					None
+				}
+			}
+			Field::Second => match *ident_type {
+				Type::TTuple(_, ref second) => type_from_ident(second, next_field),
+				_ => {
+					println!("Cannot take second element from type {}", ident_type);
+					None
+				}
+			}
+		}
+	}
+}
+
 fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Type>, expr_type: &mut HashMap<*const Expression, Type>) -> Option<Type> {
 	match *expr {
-		Expression::Ident(ref ident, ref fields) => {
-			// TODO
-			None
+		Expression::Ident(ref ident, ref fields) =>	match type_env.get(&(ident, false)) {
+			None => {
+				println!("Use of undefined variable {}.", ident);
+				None
+			},
+			Some(var) => {
+				type_from_ident(*var, fields)
+			}
 		},
 		Expression::Op2(ref left_exp, ref op2, ref right_exp) => {
-			// TODO
-			None
+			let left_expression_type = analyse_expression(left_exp, type_env, expr_type)?;
+			let right_expression_type = analyse_expression(right_exp, type_env, expr_type)?;
+
+			expr_type.insert(left_exp.borrow() as *const Expression, left_expression_type.clone());
+			expr_type.insert(right_exp.borrow() as *const Expression, right_expression_type.clone());
+
+			match *op2 {
+				| Op2::Addition
+				| Op2::Subtraction => {
+					if (left_expression_type == Type::TInt || left_expression_type == Type::TChar)
+						&& left_expression_type == right_expression_type {
+							Some(left_expression_type)
+					} else {
+						println!("Operator {} not defined for types {} and {}.",
+							op2, left_expression_type, right_expression_type);
+						None
+					}
+				},
+				| Op2::Multiplication
+				| Op2::Division
+				| Op2::Modulo => {
+					if left_expression_type == Type::TInt && left_expression_type == right_expression_type {
+							Some(left_expression_type)
+					} else {
+						println!("Operator {} not defined for types {} and {}.",
+							op2, left_expression_type, right_expression_type);
+						None
+					}
+				},
+				| Op2::Equals
+				| Op2::LessThan
+				| Op2::GreaterThan
+				| Op2::LessEquals
+				| Op2::GreaterEquals
+				| Op2::NotEquals => {
+					if left_expression_type == right_expression_type {
+						Some(Type::TBool)
+					} else {
+						println!("Operator {} not defined for types {} and {}.",
+							op2, left_expression_type, right_expression_type);
+						None
+					}
+				},
+				| Op2::And
+				| Op2::Or => {
+					if left_expression_type == Type::TBool && left_expression_type == right_expression_type {
+						Some(Type::TBool)
+					} else {
+						println!("Operator {} not defined for types {} and {}.",
+							op2, left_expression_type, right_expression_type);
+						None
+					}
+				},
+				Op2::Cons => {
+					let left_to_list = Type::TList(Box::new(left_expression_type.clone()));
+					if left_to_list == right_expression_type {
+						Some(left_to_list)
+					} else {
+						println!("Operator {} not defined for types {} and {}.",
+							op2, left_expression_type, right_expression_type);
+						None
+					}
+				}
+			}
 		},
 		Expression::Op1(ref op1, ref exp) => {
 			let expression_type = analyse_expression(exp, type_env, expr_type)?;

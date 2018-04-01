@@ -8,11 +8,33 @@ pub fn semantic_analysis(ast: &SPL) -> Option<HashMap<*const Expression, Type>> 
 	// This is needed since an expression may use an identifier which can have a different type (and we want to keep the previous expression type intact)
 	let mut expr_type: HashMap<*const Expression, Type> = HashMap::new();
 
-	// Type environment. Used to check if an identifier has already been defined and whether it has the right type for the usage
+	// Type environment. Used to check if an identifier has already been defined and whether it has the right type for the usage.
 	let mut type_env = HashMap::new();
+
+	// First we collect all function declarations because it is allowed to use them before the declaration
+	for fun in &ast.funs {
+		if type_env.contains_key(&(&fun.name, true)) {
+			println!("Function {} multiply defined.", fun.name);
+			return None;
+		}
+		type_env.insert((&fun.name, true), &fun.ftype);
+
+		let ftype = match fun.ftype {
+			Type::TArrow(ref arg_types, ref ret_type) => (arg_types, ret_type),
+			_ => unreachable!()
+		};
+
+		if fun.args.len() != ftype.0.len() {
+			println!("Amount of specified types do not match arguments for function {}. Expected {} but was given {}.",
+				fun.name, fun.args.len(), ftype.0.len());
+			return None;
+		}
+	}
+
+	// Collect all global variables and type check them
 	for var in &ast.vars {
 		// Type check the variable declaration
-		let expression_type = analyse_expression(&var.value);
+		let expression_type = analyse_expression(&var.value)?;
 		if var.vtype != expression_type {
 			println!("Global variable type mismatch in:\n{}", var);
 			println!("Given type {}, found type {}.", var.vtype, expression_type);
@@ -22,26 +44,26 @@ pub fn semantic_analysis(ast: &SPL) -> Option<HashMap<*const Expression, Type>> 
 		expr_type.insert(&var.value as *const Expression, expression_type);
 
 		// Check if the variable declaration is already defined
-		if type_env.contains_key(&var.name) {
+		if type_env.contains_key(&(&var.name, false)) {
 			println!("Global variable {} multiply defined.", var.name);
 			return None;
 		}
-
 		// Add variable declaration to type environment
-		type_env.insert(&var.name, &var.vtype);
+		type_env.insert((&var.name, false), &var.vtype);
 	}
 
+	println!("{:?}", type_env);
 	Some(expr_type)
 }
 
-fn analyse_expression(expr: &Expression) -> Type {
+fn analyse_expression(expr: &Expression) -> Option<Type> {
 	match *expr {
 		Expression::Lit(ref literal) => match *literal {
-			Literal::Int(_) => Type::TInt,
-			Literal::Char(_) => Type::TChar,
-			Literal::Bool(_) => Type::TBool,
-			Literal::EmptyList => Type::TList(Box::new(Type::TVoid))
+			Literal::Int(_) => Some(Type::TInt),
+			Literal::Char(_) => Some(Type::TChar),
+			Literal::Bool(_) => Some(Type::TBool),
+			Literal::EmptyList => Some(Type::TList(Box::new(Type::TVoid)))
 		},
-		_ => Type::TVoid
+		_ => None
 	}
 }

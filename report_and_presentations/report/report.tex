@@ -182,6 +182,11 @@
 <id> = alpha ( '\_' | alphaNum)*
 \end{grammar}
 
+% first we collect all function declarations and check those (num args matches etc.) and enter them into the type environment
+% then we check all global variables. We can do this now since we know the function declarations.
+% then we check all functions. We can do this since we know all global variables.
+% functions and variables go into the same type environment but we use a bool to track whether it is a function or a variable.
+
 \section{Code Generation}
 
 \end{document}

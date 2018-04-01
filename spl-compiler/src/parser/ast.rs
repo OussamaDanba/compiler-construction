@@ -80,7 +80,7 @@ pub enum Op2 {
 	Cons
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum Op1 {
 	Not,
 	Negation

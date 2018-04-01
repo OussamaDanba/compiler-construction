@@ -1,5 +1,6 @@
 use parser::{Ident, SPL, Variable, Function, Type, Statement, Expression, Field, Op2, Op1, Literal};
 use std::collections::HashMap;
+use std::borrow::Borrow;
 
 pub fn semantic_analysis(ast: &SPL) -> Option<HashMap<*const Expression, Type>> {
 	// Every expression has a type. During semantic analysis we end up knowing what type this is,
@@ -9,7 +10,8 @@ pub fn semantic_analysis(ast: &SPL) -> Option<HashMap<*const Expression, Type>> 
 	let mut expr_type: HashMap<*const Expression, Type> = HashMap::new();
 
 	// Type environment. Used to check if an identifier has already been defined and whether it has the right type for the usage.
-	let mut type_env = HashMap::new();
+	// We use a bool to distinguish between variable and function
+	let mut type_env: HashMap<(&Ident, bool), &Type> = HashMap::new();
 
 	// First we collect all function declarations because it is allowed to use them before the declaration
 	for fun in &ast.funs {
@@ -34,7 +36,7 @@ pub fn semantic_analysis(ast: &SPL) -> Option<HashMap<*const Expression, Type>> 
 	// Collect all global variables and type check them
 	for var in &ast.vars {
 		// Type check the variable declaration
-		let expression_type = analyse_expression(&var.value)?;
+		let expression_type = analyse_expression(&var.value, &type_env, &mut expr_type)?;
 		if var.vtype != expression_type {
 			println!("Global variable type mismatch in:\n{}", var);
 			println!("Given type {}, found type {}.", var.vtype, expression_type);
@@ -56,8 +58,24 @@ pub fn semantic_analysis(ast: &SPL) -> Option<HashMap<*const Expression, Type>> 
 	Some(expr_type)
 }
 
-fn analyse_expression(expr: &Expression) -> Option<Type> {
+fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Type>, expr_type: &mut HashMap<*const Expression, Type>) -> Option<Type> {
 	match *expr {
+		Expression::Op1(ref op1, ref exp) => {
+			let expression_type = analyse_expression(exp, type_env, expr_type)?;
+			if (*op1 == Op1::Not && expression_type != Type::TBool)
+				|| (*op1 == Op1::Negation && expression_type != Type::TInt) {
+					println!("Attempting to use binary operator {} on expression {} of type {}.", op1, exp, expression_type);
+					return None;
+			}
+
+			expr_type.insert(exp.borrow() as *const Expression, expression_type);
+
+			Some(
+				match *op1 {
+					Op1::Not => Type::TBool,
+					Op1::Negation => Type::TInt
+			})
+		},
 		Expression::Lit(ref literal) => match *literal {
 			Literal::Int(_) => Some(Type::TInt),
 			Literal::Char(_) => Some(Type::TChar),

@@ -76,12 +76,23 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 					Op1::Negation => Type::TInt
 			})
 		},
-		Expression::Lit(ref literal) => match *literal {
-			Literal::Int(_) => Some(Type::TInt),
-			Literal::Char(_) => Some(Type::TChar),
-			Literal::Bool(_) => Some(Type::TBool),
-			Literal::EmptyList => Some(Type::TList(Box::new(Type::TVoid)))
-		},
+		Expression::Lit(ref literal) => Some (
+			match *literal {
+				Literal::Int(_) => Type::TInt,
+				Literal::Char(_) => Type::TChar,
+				Literal::Bool(_) => Type::TBool,
+				Literal::EmptyList => Type::TList(Box::new(Type::TVoid))
+			}
+		),
+		Expression::Tuple(ref left_exp, ref right_exp) => {
+			let left_expression_type = analyse_expression(left_exp, type_env, expr_type)?;
+			let right_expression_type = analyse_expression(right_exp, type_env, expr_type)?;
+
+			expr_type.insert(left_exp.borrow() as *const Expression, left_expression_type.clone());
+			expr_type.insert(right_exp.borrow() as *const Expression, right_expression_type.clone());
+
+			Some(Type::TTuple(Box::new(left_expression_type), Box::new(right_expression_type)))
+		}
 		_ => None
 	}
 }

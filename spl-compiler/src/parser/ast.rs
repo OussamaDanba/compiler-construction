@@ -24,7 +24,7 @@ pub struct Function {
 	pub stmts: Vec<Statement>
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Type {
 	TInt,
 	TBool,

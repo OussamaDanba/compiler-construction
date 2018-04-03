@@ -96,6 +96,18 @@ parser!{
 	fn parse_exp3[I]()(I) -> Expression
 	  where [I: Stream<Item=Token>]
 	{
+		(parse_exp4(), optional((token(Token::TokenColon), parse_exp3())))
+			.map(|(l, r)| match r {
+				Some((_, x)) => Expression::Op2(Box::new(l), Op2::Cons, Box::new(x)),
+				_ => l
+		})
+	}
+}
+
+parser!{
+	fn parse_exp4[I]()(I) -> Expression
+	  where [I: Stream<Item=Token>]
+	{
 		let allowed_tokens = choice!(
 			token(Token::TokenDoubleEquals),
 			token(Token::TokenLt),
@@ -115,21 +127,9 @@ parser!{
 			_ => panic!("Unreachable")
 		};
 
-		(parse_exp4(), optional((allowed_tokens, parse_exp3())))
+		(parse_exp5(), optional((allowed_tokens, parse_exp4())))
 			.map(|(l, r)| match r {
 				Some((token, x)) => Expression::Op2(Box::new(l), mapping(token), Box::new(x)),
-				_ => l
-		})
-	}
-}
-
-parser!{
-	fn parse_exp4[I]()(I) -> Expression
-	  where [I: Stream<Item=Token>]
-	{
-		(parse_exp5(), optional((token(Token::TokenColon), parse_exp4())))
-			.map(|(l, r)| match r {
-				Some((_, x)) => Expression::Op2(Box::new(l), Op2::Cons, Box::new(x)),
 				_ => l
 		})
 	}

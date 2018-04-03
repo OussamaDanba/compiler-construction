@@ -1,4 +1,4 @@
-use parser::{Ident, SPL, Variable, Function, Type, Statement, Expression, Field, Op2, Op1, Literal};
+use parser::{Ident, SPL, Function, Type, Statement, Expression, Field, Op2, Op1, Literal};
 use std::collections::HashMap;
 use std::borrow::Borrow;
 
@@ -16,18 +16,18 @@ pub fn semantic_analysis(ast: &SPL) -> Option<HashMap<*const Expression, Type>> 
 	// First we collect all function declarations because it is allowed to use them before the declaration
 	for fun in &ast.funs {
 		if type_env.contains_key(&(&fun.name, true)) {
-			println!("Function {} multiply defined.", fun.name);
+			println!("Function '{}' multiply defined.", fun.name);
 			return None;
 		}
 		type_env.insert((&fun.name, true), &fun.ftype);
 
 		let ftype_arguments = match fun.ftype {
-			Type::TArrow(ref arg_types, ref ret_type) => arg_types,
+			Type::TArrow(ref arg_types, _) => arg_types,
 			_ => unreachable!()
 		};
 
 		if fun.args.len() != ftype_arguments.len() {
-			println!("Amount of specified types do not match arguments for function {}. Expected {} but was given {}.",
+			println!("Amount of specified types do not match arguments for function '{}'. Expected '{}' but was given '{}'.",
 				fun.name, fun.args.len(), ftype_arguments.len());
 			return None;
 		}
@@ -39,7 +39,7 @@ pub fn semantic_analysis(ast: &SPL) -> Option<HashMap<*const Expression, Type>> 
 		let expression_type = analyse_expression(&var.value, &type_env, &mut expr_type)?;
 		if var.vtype != expression_type {
 			println!("Global variable type mismatch in:\n{}", var);
-			println!("Given type {}, found type {}.", var.vtype, expression_type);
+			println!("Given type '{}', found type '{}'.", var.vtype, expression_type);
 			return None;
 		}
 		// Store the type of the expression
@@ -47,7 +47,7 @@ pub fn semantic_analysis(ast: &SPL) -> Option<HashMap<*const Expression, Type>> 
 
 		// Check if the variable declaration is already defined
 		if type_env.contains_key(&(&var.name, false)) {
-			println!("Global variable {} multiply defined.", var.name);
+			println!("Global variable '{}' multiply defined.", var.name);
 			return None;
 		}
 		// Add variable declaration to type environment
@@ -61,16 +61,13 @@ pub fn semantic_analysis(ast: &SPL) -> Option<HashMap<*const Expression, Type>> 
 		}
 		// We don't care about the return value we just need to know whether an error occured or not
 		// so we can do an early return
-		match analyse_function(fun, &type_env, &mut expr_type) {
-			Err(_) => return None,
-			Ok(_) => ()
-		}
+		if analyse_function(fun, &type_env, &mut expr_type).is_err() { return None }
 	}
 
 	Some(expr_type)
 }
 
-fn analyse_function(fun: & Function, type_env: &HashMap<(& Ident, bool), &Type>, expr_type: &mut HashMap<*const Expression, Type>) -> Result<(), ()> {
+fn analyse_function(fun: &Function, type_env: &HashMap<(&Ident, bool), &Type>, expr_type: &mut HashMap<*const Expression, Type>) -> Result<(), ()> {
 	// Function type as tuple to make working with it easier
 	let ftype_as_tuple = match fun.ftype {
 		Type::TArrow(ref arg_types, ref ret_type) => (arg_types, ret_type),
@@ -82,7 +79,7 @@ fn analyse_function(fun: & Function, type_env: &HashMap<(& Ident, bool), &Type>,
 
 	// Enter function arguments into the type environment
 	for (i, arg_name) in (&fun.args).iter().enumerate() {
-		temp_type_env.insert((&arg_name, false), &(ftype_as_tuple.0)[i]);
+		temp_type_env.insert((arg_name, false), &(ftype_as_tuple.0)[i]);
 	}
 
 	// Enter variable declarations into the type_environment
@@ -94,7 +91,7 @@ fn analyse_function(fun: & Function, type_env: &HashMap<(& Ident, bool), &Type>,
 		};
 		if var.vtype != expression_type {
 			println!("Variable type mismatch in:\n{}", var);
-			println!("Given type {}, found type {}.", var.vtype, expression_type);
+			println!("Given type '{}', found type '{}'.", var.vtype, expression_type);
 			return Err(());
 		}
 		// Store the type of the expression
@@ -104,9 +101,136 @@ fn analyse_function(fun: & Function, type_env: &HashMap<(& Ident, bool), &Type>,
 		temp_type_env.insert((&var.name, false), &var.vtype);
 	}
 
-	// TODO: statements
+	// Collect the first returning statement and its type (if there is one).
+	let mut stmt_returning = None;
+	for stmt in &fun.stmts {
+		match analyse_statement(stmt, &temp_type_env, expr_type, ftype_as_tuple.1) {
+			Ok(x) => if let Some(x) = x { stmt_returning = Some((stmt, x)); break },
+			Err(_) => return Err(())
+		}
+	}
 
-	Ok(())
+	// If there was a returning statement all paths resulted in a return
+	match stmt_returning {
+		Some(x) => {
+			// Sanity check (not strictly necessary)
+			if x.1 == **ftype_as_tuple.1 {
+				Ok(())
+			} else {
+				println!("Statement '{}' does not result in type '{}' in function '{}'.",
+					x.0, ftype_as_tuple.1, fun.name);
+				Err(())
+			}
+		}
+		None => {
+			println!("Not all paths of function '{}' will result in a return value.", fun.name);
+			Err(())
+		}
+	}
+}
+
+// A return type of Err encodes failure whereas Option<Type> encodes success and whether the statement contained a return in every branch or not
+fn analyse_statement(stmt: &Statement, type_env: &HashMap<(&Ident, bool), &Type>, expr_type: &mut HashMap<*const Expression, Type>, ret_type: &Type) -> Result<Option<Type>, ()> {
+	match *stmt {
+		Statement::If(ref expr, ref if_stmts, ref else_stmts) => match analyse_expression(expr, type_env, expr_type) {
+			Some(x) => {
+				expr_type.insert(expr as *const Expression, x);
+
+				let mut if_stmt_returning = None;
+				for sub_stmt in if_stmts {
+					match analyse_statement(sub_stmt, type_env, expr_type, ret_type) {
+						Ok(x) => if let Some(x) = x { if_stmt_returning = Some(x); break },
+						Err(_) => return Err(())
+					}
+				}
+
+				let mut else_stmt_returning = None;
+				for sub_stmt in else_stmts {
+					match analyse_statement(sub_stmt, type_env, expr_type, ret_type) {
+						Ok(x) => if let Some(x) = x { else_stmt_returning = Some(x); break },
+						Err(_) => return Err(())
+					}
+				}
+
+				if if_stmt_returning.is_none() || else_stmt_returning.is_none() {
+					Ok(None)
+				}
+				// Sanity check (not strictly necessary)
+				else if if_stmt_returning.clone().unwrap() != else_stmt_returning.unwrap() {
+					println!("If and else branch type mismatch for if-statement:\n{}", stmt);
+					Err(())
+				} else {
+					Ok(Some(if_stmt_returning.unwrap()))
+				}
+			},
+			None => Err(())
+		},
+		Statement::While(ref expr, ref while_stmts) => match analyse_expression(expr, type_env, expr_type) {
+			Some(x) => {
+				expr_type.insert(expr as *const Expression, x);
+
+				let mut stmt_returning = None;
+				for sub_stmt in while_stmts {
+					match analyse_statement(sub_stmt, type_env, expr_type, ret_type) {
+						Ok(x) => if let Some(x) = x { stmt_returning = Some(x); break },
+						Err(_) => return Err(())
+					}
+				}
+
+				match stmt_returning {
+					Some(x) => Ok(Some(x)),
+					None => Ok(None)
+				}
+			},
+			None => Err(())
+		},
+		Statement::Assignment(ref ident, ref fields, ref expr) => {
+			match type_env.get(&(ident, false)) {
+				Some(x) => {
+					match (type_from_ident(x, fields), analyse_expression(expr, type_env, expr_type)) {
+						(Some(x), Some(y)) =>
+							if x == y {
+								expr_type.insert(expr as *const Expression, y.clone());
+								Ok(None)
+							} else {
+								println!("Statement '{}' has mismatching types. LHS is of type '{}' while RHS is of type '{}'.", stmt, x, y);
+								Err(())
+							},
+						_ => Err(())
+					}
+				},
+				None => {
+					println!("Use of undefined variable '{}' in statement '{}'", ident, stmt);
+					Err(())
+				}
+			}
+		},
+		Statement::FunCall(ref expr) =>	match analyse_expression(expr, type_env, expr_type) {
+			Some(x) => { expr_type.insert(expr as *const Expression, x.clone()); Ok(None) },
+			None => Err(())
+		},
+		Statement::Return(ref opt_expr) => match *opt_expr {
+			Some(ref expr) => match analyse_expression(expr, type_env, expr_type) {
+				Some(x) => {
+					if x != *ret_type {
+						println!("Return statement '{}' has type '{}' while function expects type '{}'.", stmt, x, ret_type);
+						return Err(());
+					}
+					expr_type.insert(expr as *const Expression, x.clone());
+					Ok(Some(x))
+				},
+				None => Err(())
+			},
+			None => {
+				if *ret_type != Type::TVoid {
+					println!("Return statement '{}' has type '{}' while function expects type '{}'.", stmt, Type::TVoid, ret_type);
+					Err(())
+				} else {
+					Ok(Some(Type::TVoid))
+				}
+			}
+		}
+	}
 }
 
 fn type_from_ident(ident_type: &Type, fields: &[Field]) -> Option<Type> {
@@ -119,28 +243,28 @@ fn type_from_ident(ident_type: &Type, fields: &[Field]) -> Option<Type> {
 			Field::Head => match *ident_type {
 				Type::TList(ref list) => type_from_ident(list, next_field),
 				_ => {
-					println!("Cannot take head of list from type {}", ident_type);
+					println!("Cannot take head of list from type '{}'", ident_type);
 					None
 				}
 			},
 			Field::Tail => match *ident_type {
 				Type::TList(_) => type_from_ident(ident_type, next_field),
 				_ => {
-					println!("Cannot take tail of list from type {}", ident_type);
+					println!("Cannot take tail of list from type '{}'", ident_type);
 					None
 				}
 			},
 			Field::First =>	match *ident_type {
 				Type::TTuple(ref first, _) => type_from_ident(first, next_field),
 				_ => {
-					println!("Cannot take first element from type {}", ident_type);
+					println!("Cannot take first element from type '{}'", ident_type);
 					None
 				}
 			}
 			Field::Second => match *ident_type {
 				Type::TTuple(_, ref second) => type_from_ident(second, next_field),
 				_ => {
-					println!("Cannot take second element from type {}", ident_type);
+					println!("Cannot take second element from type '{}'", ident_type);
 					None
 				}
 			}
@@ -152,7 +276,7 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 	match *expr {
 		Expression::Ident(ref ident, ref fields) =>	match type_env.get(&(ident, false)) {
 			None => {
-				println!("Use of undefined variable {}.", ident);
+				println!("Use of undefined variable '{}'.", ident);
 				None
 			},
 			Some(var) => {
@@ -173,7 +297,7 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 						&& left_expression_type == right_expression_type {
 							Some(left_expression_type)
 					} else {
-						println!("Operator {} not defined for types {} and {}.",
+						println!("Operator '{}' not defined for types '{}' and '{}'.",
 							op2, left_expression_type, right_expression_type);
 						None
 					}
@@ -184,7 +308,7 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 					if left_expression_type == Type::TInt && left_expression_type == right_expression_type {
 							Some(left_expression_type)
 					} else {
-						println!("Operator {} not defined for types {} and {}.",
+						println!("Operator '{}' not defined for types '{}' and '{}'.",
 							op2, left_expression_type, right_expression_type);
 						None
 					}
@@ -198,7 +322,7 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 					if left_expression_type == right_expression_type {
 						Some(Type::TBool)
 					} else {
-						println!("Operator {} not defined for types {} and {}.",
+						println!("Operator '{}' not defined for types '{}' and '{}'.",
 							op2, left_expression_type, right_expression_type);
 						None
 					}
@@ -208,7 +332,7 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 					if left_expression_type == Type::TBool && left_expression_type == right_expression_type {
 						Some(Type::TBool)
 					} else {
-						println!("Operator {} not defined for types {} and {}.",
+						println!("Operator '{}' not defined for types '{}' and '{}'.",
 							op2, left_expression_type, right_expression_type);
 						None
 					}
@@ -218,7 +342,7 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 					if left_to_list == right_expression_type {
 						Some(left_to_list)
 					} else {
-						println!("Operator {} not defined for types {} and {}.",
+						println!("Operator '{}' not defined for types '{}' and '{}'.",
 							op2, left_expression_type, right_expression_type);
 						None
 					}
@@ -229,7 +353,7 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 			let expression_type = analyse_expression(exp, type_env, expr_type)?;
 			if (*op1 == Op1::Not && expression_type != Type::TBool)
 				|| (*op1 == Op1::Negation && expression_type != Type::TInt) {
-					println!("Attempting to use binary operator {} on expression {} of type {}.", op1, exp, expression_type);
+					println!("Attempting to use binary operator '{}' on expression '{}' of type '{}'.", op1, exp, expression_type);
 					return None;
 			}
 
@@ -252,13 +376,13 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 		Expression::FunCall(ref ident, ref exps) => {
 			match type_env.get(&(ident, true)) {
 				None => {
-					println!("Function call to undefined function {}.", ident);
+					println!("Function call to undefined function '{}'.", ident);
 					None
 				},
 				Some(fun) => match **fun {
 					Type::TArrow(ref arg_types, ref ret_type) => {
 						if exps.len() != arg_types.len() {
-							println!("Attempting to call function {} with {} arguments while it has {}.",
+							println!("Attempting to call function '{}' with {} arguments while it has {}.",
 								ident, exps.len(), arg_types.len());
 							return None;
 						}
@@ -268,7 +392,7 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 							expr_type.insert(exp as *const Expression, expression_type.clone());
 
 							if expression_type != arg_types[exp_index] && ident != "print" {
-								println!("Function call to {}: argument expected type {} but got type {} from expression {}.",
+								println!("Function call to '{}': argument expected type '{}' but got type '{}' from expression '{}'.",
 									ident, arg_types[exp_index], expression_type, exp);
 								return None;
 							}

@@ -76,7 +76,8 @@ fn main() {
 		return;
 	}
 
-	println!("{:?}", sem_result);
+	// For debugging purposes
+	println!("Type of each expression:\n{:?}", sem_result.unwrap());
 }
 
 // Given an index it returns the line number and actual line the index is in

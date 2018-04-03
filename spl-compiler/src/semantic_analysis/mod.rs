@@ -123,8 +123,13 @@ fn analyse_function(fun: &Function, type_env: &HashMap<(&Ident, bool), &Type>, e
 			}
 		}
 		None => {
-			println!("Not all paths of function '{}' will result in a return value.", fun.name);
-			Err(())
+			// Functions with return type void don't necessarily need to have a return statement somewhere
+			if **ftype_as_tuple.1 != Type::TVoid {
+				println!("Not all paths of function '{}' will result in a return value.", fun.name);
+				Err(())
+			} else {
+				Ok(())
+			}
 		}
 	}
 }

@@ -71,7 +71,12 @@ fn main() {
 		stmts: Vec::new()
 	});
 
-	println!("{:?}", semantic_analysis::semantic_analysis(&spl));
+	let sem_result = semantic_analysis::semantic_analysis(&spl);
+	if sem_result.is_none() {
+		return;
+	}
+
+	println!("{:?}", sem_result);
 }
 
 // Given an index it returns the line number and actual line the index is in

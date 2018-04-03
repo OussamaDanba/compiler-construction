@@ -21,14 +21,14 @@ pub fn semantic_analysis(ast: &SPL) -> Option<HashMap<*const Expression, Type>> 
 		}
 		type_env.insert((&fun.name, true), &fun.ftype);
 
-		let ftype = match fun.ftype {
-			Type::TArrow(ref arg_types, ref ret_type) => (arg_types, ret_type),
+		let ftype_arguments = match fun.ftype {
+			Type::TArrow(ref arg_types, ref ret_type) => arg_types,
 			_ => unreachable!()
 		};
 
-		if fun.args.len() != ftype.0.len() {
+		if fun.args.len() != ftype_arguments.len() {
 			println!("Amount of specified types do not match arguments for function {}. Expected {} but was given {}.",
-				fun.name, fun.args.len(), ftype.0.len());
+				fun.name, fun.args.len(), ftype_arguments.len());
 			return None;
 		}
 	}
@@ -54,8 +54,59 @@ pub fn semantic_analysis(ast: &SPL) -> Option<HashMap<*const Expression, Type>> 
 		type_env.insert((&var.name, false), &var.vtype);
 	}
 
-	println!("{:?}", type_env);
+	for fun in &ast.funs {
+		// There is no point in checking print and isEmpty since they are built-in
+		if fun.name == "print" || fun.name == "isEmpty" {
+			continue;
+		}
+		// We don't care about the return value we just need to know whether an error occured or not
+		// so we can do an early return
+		match analyse_function(fun, &type_env, &mut expr_type) {
+			Err(_) => return None,
+			Ok(_) => ()
+		}
+	}
+
 	Some(expr_type)
+}
+
+fn analyse_function(fun: & Function, type_env: &HashMap<(& Ident, bool), &Type>, expr_type: &mut HashMap<*const Expression, Type>) -> Result<(), ()> {
+	// Function type as tuple to make working with it easier
+	let ftype_as_tuple = match fun.ftype {
+		Type::TArrow(ref arg_types, ref ret_type) => (arg_types, ret_type),
+		_ => unreachable!()
+	};
+
+	// To emulate shadowing we use a separate type environment for this function and allow variables to override the entries
+	let mut temp_type_env = type_env.clone();
+
+	// Enter function arguments into the type environment
+	for (i, arg_name) in (&fun.args).iter().enumerate() {
+		temp_type_env.insert((&arg_name, false), &(ftype_as_tuple.0)[i]);
+	}
+
+	// Enter variable declarations into the type_environment
+	for var in &fun.vars {
+		// Type check the variable declaration
+		let expression_type = match analyse_expression(&var.value, &temp_type_env, expr_type) {
+			Some(x) => x,
+			None => return Err(())
+		};
+		if var.vtype != expression_type {
+			println!("Variable type mismatch in:\n{}", var);
+			println!("Given type {}, found type {}.", var.vtype, expression_type);
+			return Err(());
+		}
+		// Store the type of the expression
+		expr_type.insert(&var.value as *const Expression, expression_type);
+
+		// Add variable declaration to type environment potentially shadowing previous ones
+		temp_type_env.insert((&var.name, false), &var.vtype);
+	}
+
+	// TODO: statements
+
+	Ok(())
 }
 
 fn type_from_ident(ident_type: &Type, fields: &[Field]) -> Option<Type> {

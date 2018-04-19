@@ -174,18 +174,14 @@ fn analyse_statement(stmt: &Statement, type_env: &HashMap<(&Ident, bool), &Type>
 			Some(x) => {
 				expr_type.insert(expr as *const Expression, x);
 
-				let mut stmt_returning = None;
 				for sub_stmt in while_stmts {
 					match analyse_statement(sub_stmt, type_env, expr_type, ret_type) {
-						Ok(x) => if let Some(x) = x { stmt_returning = Some(x); break },
+						Ok(_) => (),
 						Err(_) => return Err(())
 					}
 				}
 
-				match stmt_returning {
-					Some(x) => Ok(Some(x)),
-					None => Ok(None)
-				}
+				Ok(None)
 			},
 			None => Err(())
 		},

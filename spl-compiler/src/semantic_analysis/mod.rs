@@ -139,6 +139,10 @@ fn analyse_statement(stmt: &Statement, type_env: &HashMap<(&Ident, bool), &Type>
 	match *stmt {
 		Statement::If(ref expr, ref if_stmts, ref else_stmts) => match analyse_expression(expr, type_env, expr_type) {
 			Some(x) => {
+				if x != Type::TBool {
+					println!("Expression in if-statement is not of type {} (it is {}).", Type::TBool, x);
+					return Err(())
+				}
 				expr_type.insert(expr as *const Expression, x);
 
 				let mut if_stmt_returning = None;
@@ -172,6 +176,10 @@ fn analyse_statement(stmt: &Statement, type_env: &HashMap<(&Ident, bool), &Type>
 		},
 		Statement::While(ref expr, ref while_stmts) => match analyse_expression(expr, type_env, expr_type) {
 			Some(x) => {
+				if x != Type::TBool {
+					println!("Expression in while-statement is not of type {} (it is {}).", Type::TBool, x);
+					return Err(())
+				}
 				expr_type.insert(expr as *const Expression, x);
 
 				for sub_stmt in while_stmts {

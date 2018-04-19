@@ -33,6 +33,12 @@ pub fn semantic_analysis(ast: &SPL) -> Option<HashMap<*const Expression, Type>> 
 		}
 	}
 
+	// Ensure the program has an entrypoint
+	if !type_env.contains_key(&(&String::from("main"), true)) {
+		println!("Given program has no function main.");
+		return None;
+	}
+
 	// Collect all global variables and type check them
 	for var in &ast.vars {
 		// Type check the variable declaration

@@ -8,6 +8,7 @@ use std::io::prelude::*;
 mod scanner;
 mod parser;
 mod semantic_analysis;
+mod code_generator;
 
 fn main() {
 	// Read in specified file into a String. We don't want to panic here so we use exit.
@@ -76,8 +77,25 @@ fn main() {
 		return;
 	}
 
-	// For debugging purposes
-	println!("Type of each expression:\n{:?}", sem_result.unwrap());
+	let generated_code = code_generator::code_generator(&spl, sem_result.unwrap());
+
+	let mut output_filename = filename.to_owned();
+	output_filename.push_str(".ssm");
+	let mut file = match File::create(&output_filename) {
+		Err(_) => {
+			println!("Could not create ssm file.");
+			::std::process::exit(1)
+		},
+		Ok(file) => file,
+	};
+
+	match file.write_all(generated_code.as_bytes()) {
+		Err(_) => {
+			println!("Could not write to ssm file.");
+			::std::process::exit(1)
+		},
+		Ok(_) => println!("Code was generated into {}", output_filename)
+	}
 }
 
 // Given an index it returns the line number and actual line the index is in

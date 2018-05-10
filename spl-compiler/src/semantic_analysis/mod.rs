@@ -309,7 +309,7 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 				| Op2::Addition
 				| Op2::Subtraction => {
 					if (left_expression_type == Type::TInt || left_expression_type == Type::TChar)
-						&& left_expression_type == right_expression_type {
+						&& (right_expression_type == Type::TInt || right_expression_type == Type::TChar) {
 							Some(left_expression_type)
 					} else {
 						println!("Operator '{}' not defined for types '{}' and '{}'.",

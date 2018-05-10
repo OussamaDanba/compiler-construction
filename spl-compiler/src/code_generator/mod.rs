@@ -77,6 +77,12 @@ fn generate_functions(ast: &SPL, global_vars: &Vec<(Ident, Type)>, expr_type: &H
 		}
 	}
 
+	// We have a default RuntimeErr function which handles runtime errors. A user can define this himself if they
+	// wanted to.
+	if ast.funs.iter().find(|x| x.name == "RuntimeErr").is_none() {
+		gen_code.push_str("RuntimeErr:\ntrap 0\nhalt\n");
+	}
+
 	gen_code
 }
 
@@ -96,14 +102,23 @@ fn generate_expression(expr: &Expression, global_vars: &Vec<(Ident, Type)>, para
 					match **x {
 						Field::First => { acc.push_str("ldh 0\n"); acc },
 						Field::Second => { acc.push_str("ldh -1\n"); acc },
-						Field::Head => unimplemented!(),
-						Field::Tail => unimplemented!()
+						// First we check if we are dealing with an empty list since hd/tl can not be checked at compile
+						// time for that. We simply abort if that is the case as we were given wrong code.
+						Field::Head => {
+							acc.push_str("ldmh 0 2\nswp\nldc 0\neq\nbrt RuntimeErr\n");
+							acc
+						},
+						Field::Tail => {
+							acc.push_str("ldh -1\nlds 0\nldc 0\neq\nbrt RuntimeErr\n");
+							acc
+						}
 					}
 				});
 			}
 		},
 		Expression::Op2(ref lexpr, ref op2, ref rexpr) => {
-			unimplemented!()
+			// Split into a separate function for convenience
+			generate_op2(true, lexpr, op2, rexpr, &mut gen_code, global_vars, param_vars, local_vars, expr_type);
 		},
 		Expression::Op1(ref op, ref expr) => {
 			gen_code.push_str(&generate_expression(expr, global_vars, param_vars, local_vars, expr_type));
@@ -122,12 +137,12 @@ fn generate_expression(expr: &Expression, global_vars: &Vec<(Ident, Type)>, para
 		},
 		Expression::Lit(ref x) => match *x {
 			Literal::Int(ref val) => gen_code.push_str(&format!("ldc {}\n", *val)),
-			Literal::Bool(ref val) => gen_code.push_str(&format!("ldc {}\n", match *val {
-				true => -1,
-				false => 0
-			})),
+			Literal::Bool(ref val) => gen_code.push_str(&format!("ldc {}\n", if *val { -1 } else { 0 } )),
 			Literal::Char(ref val) => gen_code.push_str(&format!("ldc {}\n", *val as u32)),
-			_ => unimplemented!(),
+			Literal::EmptyList => {
+				// Empty list is encoded as 2 words where the second word has a value of 0x0.
+				gen_code.push_str("ldc 0\nldc 0\nstmh 2\n");
+			},
 		},
 		Expression::FunCall(ref ident, ref exprs) => {
 			// Evaluate all the expressions. This will result in n values on the stack which are then left there
@@ -157,6 +172,106 @@ fn generate_expression(expr: &Expression, global_vars: &Vec<(Ident, Type)>, para
 	}
 
 	gen_code
+}
+
+fn generate_op2(eval: bool, lexpr: &Expression, op2: &Op2, rexpr: &Expression, gen_code: &mut String, global_vars: &Vec<(Ident, Type)>,
+	param_vars: &Vec<(Ident, Type)>, local_vars: &Vec<(Ident, Type)>, expr_type: &HashMap<*const Expression, Type>) {
+
+	// In almost all cases we want to evaluate the left and right side. How we deal with the result of this is specific
+	// to the operator.
+	if eval {
+		gen_code.push_str(&generate_expression(lexpr, global_vars, param_vars, local_vars, expr_type));
+		gen_code.push_str(&generate_expression(rexpr, global_vars, param_vars, local_vars, expr_type));
+	}
+
+	match *op2 {
+		// These operators are only defined for when the left and right side are values rather than pointers
+		Op2::Addition => gen_code.push_str("add\n"),
+		Op2::Subtraction => gen_code.push_str("sub\n"),
+		Op2::Multiplication => gen_code.push_str("mul\n"),
+		Op2::Division => gen_code.push_str("div\n"),
+		Op2::Modulo => gen_code.push_str("mod\n"),
+		Op2::LessThan => gen_code.push_str("lt\n"),
+		Op2::GreaterThan => gen_code.push_str("gt\n"),
+		Op2::LessEquals => gen_code.push_str("le\n"),
+		Op2::GreaterEquals => gen_code.push_str("ge\n"),
+		Op2::And => gen_code.push_str("and\n"),
+		Op2::Or => gen_code.push_str("or\n"),
+		// These operators can have pointers thus require more work
+		Op2::Equals => {
+			// TODO: fix this + remove debug
+			println!("{:?}", expr_type.get(&(lexpr as *const Expression)));
+			println!("{:?}", expr_type.get(&(rexpr as *const Expression)));
+			match expr_type.get(&(lexpr as *const Expression)).unwrap() {
+				| &Type::TInt
+				| &Type::TBool
+				| &Type::TChar => gen_code.push_str("eq\n"),
+				&Type::TTuple(_, _) => {
+					let (fst_lexpr, snd_lexpr) = match lexpr {
+						&Expression::Tuple(ref l, ref r) => (l, r),
+						_ => unreachable!()
+					};
+					let (fst_rexpr, snd_rexpr) = match rexpr {
+						&Expression::Tuple(ref l, ref r) => (l, r),
+						_ => unreachable!()
+					};
+
+					gen_code.push_str("lds 0\nldh 0\nlds -2\nldh 0\n");
+					generate_op2(false, fst_lexpr, op2, fst_rexpr, gen_code, global_vars, param_vars, local_vars, expr_type);
+
+					gen_code.push_str("lds -1\nldh -1\nlds -3\nldh -1\n");
+					generate_op2(false, snd_lexpr, op2, snd_rexpr, gen_code, global_vars, param_vars, local_vars, expr_type);
+
+					gen_code.push_str("and\nsts -2\najs -1\n");
+				},
+				&Type::TList(_) => {
+					println!("{:?}|{:?}", lexpr, rexpr);
+					let option_lexpr = match lexpr {
+						&Expression::Op2(ref l, Op2::Cons, ref r) => Some((l, r)),
+						&Expression::Lit(_) => None,
+						_ => unreachable!()
+					};
+					let option_rexpr = match rexpr {
+						&Expression::Op2(ref l, Op2::Cons, ref r) => Some((l, r)),
+						&Expression::Lit(_) => None,
+						_ => unreachable!()
+					};
+
+					if option_lexpr.is_none() && option_rexpr.is_none() {
+						gen_code.push_str("lds 0\nldh -1\nlds -2\nldh -1\neq\nsts -2\najs -1\n");
+					} else if option_lexpr.is_none() || option_rexpr.is_none() {
+						gen_code.push_str("ldc 0\nsts -2\najs -1\n");
+					} else {
+						gen_code.push_str("lds 0\nldh 0\nlds -2\nldh 0\n");
+						generate_op2(false, option_lexpr.unwrap().0, op2, option_rexpr.unwrap().0, gen_code, global_vars, param_vars, local_vars, expr_type);
+
+						gen_code.push_str("lds -1\nldh -1\nlds -3\nldh -1\n");
+						generate_op2(false, option_lexpr.unwrap().1, op2, option_rexpr.unwrap().1, gen_code, global_vars, param_vars, local_vars, expr_type);
+
+						gen_code.push_str("and\nsts -2\najs -1\n");
+					}
+				},
+				&Type::TVoid => {
+					println!("wtf tvoid");
+					unreachable!()
+				},
+				_ => unreachable!()
+			}
+		},
+		Op2::NotEquals => {
+			generate_op2(false, lexpr, &Op2::Equals, rexpr, gen_code, global_vars, param_vars, local_vars, expr_type);
+			gen_code.push_str("not\n");
+		},
+		Op2::Cons => {
+			// Lists are generated as linked lists. So when given a pointer to a list you are given a
+			// pointer to the head. In the word next to is a pointer to the head of the tail. And so on.
+			// Every list always ends with the empty list. The empty list itself is encoded as having a pointer to 0x0
+			// (which is guaranteed to be the code segment and thus never actually used for data).
+			// Note the swap so the stack values end up in the heap in a more convenient way. Technically we can generate
+			// more efficient code for some code duplication here.
+			gen_code.push_str("swp\nstmh 2\n");
+		}
+	}
 }
 
 // A helper function to find an identifier and puts it at the top of the stack. First checks the local variables,

@@ -236,7 +236,7 @@ parser!{
 	  where [I: Stream<Item=Token>]
 	{
 		let actargs_parse = (parse_exp(), many((token(Token::TokenComma), parse_exp()).map(|x| x.1)))
-			.map(|(exp, mut exps): (Expression, Vec<Expression>)| { exps.push(exp); exps } );
+			.map(|(exp, mut exps): (Expression, Vec<Expression>)| { exps.insert(0, exp); exps } );
 
 		(parse_identifier(), token(Token::TokenParenOpen), optional(actargs_parse), token(Token::TokenParenClose)).map(|(ident, _, actargs, _)| match actargs {
 			Some(x) => Expression::FunCall(ident, x),

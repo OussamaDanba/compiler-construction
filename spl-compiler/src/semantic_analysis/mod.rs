@@ -328,13 +328,22 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 						None
 					}
 				},
-				| Op2::Equals
 				| Op2::LessThan
 				| Op2::GreaterThan
 				| Op2::LessEquals
-				| Op2::GreaterEquals
+				| Op2::GreaterEquals => {
+					if (left_expression_type == Type::TInt || left_expression_type == Type::TChar)
+						&& (right_expression_type == Type::TInt || right_expression_type == Type::TChar) {
+							Some(Type::TBool)
+					} else {
+						println!("Operator '{}' not defined for types '{}' and '{}'.",
+							op2, left_expression_type, right_expression_type);
+						None
+					}
+				},
+				| Op2::Equals
 				| Op2::NotEquals => {
-					if left_expression_type == right_expression_type {
+					if left_expression_type == right_expression_type && left_expression_type != Type::TVoid {
 						Some(Type::TBool)
 					} else {
 						println!("Operator '{}' not defined for types '{}' and '{}'.",
@@ -344,7 +353,7 @@ fn analyse_expression(expr: &Expression, type_env: &HashMap<(&Ident, bool), &Typ
 				},
 				| Op2::And
 				| Op2::Or => {
-					if left_expression_type == Type::TBool && left_expression_type == right_expression_type {
+					if left_expression_type == Type::TBool && right_expression_type == Type::TBool {
 						Some(Type::TBool)
 					} else {
 						println!("Operator '{}' not defined for types '{}' and '{}'.",

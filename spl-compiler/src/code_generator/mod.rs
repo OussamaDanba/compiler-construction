@@ -1,4 +1,4 @@
-use parser::{Ident, SPL, Variable, Type, Statement, Expression, Field, Op2, Op1, Literal};
+use parser::{Ident, SPL, Function, Variable, Type, Statement, Expression, Field, Op2, Op1, Literal};
 use std::collections::HashMap;
 use rand::{self, Rng};
 
@@ -32,8 +32,8 @@ fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &Hash
 	for fun in &ast.funs {
 		// print and isEmpty require special handling as they are polymorphic
 		if fun.name != "print" && fun.name != "isEmpty" {
-			let fun_args = match fun.ftype {
-				Type::TArrow(ref args, _) => args,
+			let (fun_args, fun_res) = match fun.ftype {
+				Type::TArrow(ref args, ref res) => (args, res),
 				_ => panic!("Function type was not ftype!")
 			};
 
@@ -67,19 +67,23 @@ fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &Hash
 
 			// Code for the statements:
 			for stmt in &fun.stmts {
-				let statement_code = generate_statements(stmt, global_vars, &param_vars, &local_vars, expr_type);
+				let statement_code = generate_statements(stmt, fun, global_vars, &param_vars, &local_vars, expr_type);
 				gen_code.push_str(&statement_code);
 			}
 
-			// TODO: store in RR (don't forget about void functions!)
-
-			// Function clean up routine. Clears the entire stack frame. (including the parameters the previous function
-			// set on the stack for this function)
-			if !fun_args.is_empty() {
-				gen_code.push_str(&format!("unlink\nsts -{}\najs -{}\nret\n", fun_args.len(), fun_args.len() - 1));
-			} else {
-				gen_code.push_str("unlink\nret\n");
-			}
+			// Generate a return statement in case the last statement was not a return but the function results in a TVoid
+			if let Some(stmt) = fun.stmts.iter().last() {
+				match *stmt {
+					Statement::Return(_) => (),
+					_ => if **fun_res == Type::TVoid {
+						if !fun_args.is_empty() {
+							gen_code.push_str(&format!("unlink\nsts -{}\najs -{}\nret\n", fun_args.len(), fun_args.len() - 1));
+						} else {
+							gen_code.push_str("unlink\nret\n");
+						}
+					}
+				}
+			};
 		} else {
 			// TODO: special handling
 		}
@@ -94,7 +98,7 @@ fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &Hash
 	gen_code
 }
 
-fn generate_statements(stmt: &Statement, global_vars: &[(Ident, Type)], param_vars: &[(Ident, Type)],
+fn generate_statements(stmt: &Statement, fun: &Function, global_vars: &[(Ident, Type)], param_vars: &[(Ident, Type)],
 	local_vars: &[(Ident, Type)], expr_type: &HashMap<*const Expression, Type>) -> String {
 
 	let mut gen_code = String::new();
@@ -128,6 +132,38 @@ fn generate_statements(stmt: &Statement, global_vars: &[(Ident, Type)], param_va
 
 			// Store result of the expression at the address of the identifier (with its fields)
 			gen_code.push_str("sta 0\n");
+		},
+		Statement::FunCall(ref expr) => {
+			// Only call the function but do nothing with the return value
+			gen_code.push_str(&generate_expression(expr, global_vars, param_vars, local_vars, expr_type));
+			gen_code.push_str("ajs -1\n");
+		},
+		Statement::Return(ref option_expr) => {
+			let args_len = match fun.ftype {
+				Type::TArrow(ref args, _) => args.len(),
+				_ => panic!("Function type was not ftype!")
+			};
+
+			match *option_expr {
+				Some(ref expr) => {
+					gen_code.push_str(&generate_expression(expr, global_vars, param_vars, local_vars, expr_type));
+
+					// In this case we store the result in RR since the function results in a value
+					if args_len > 0 {
+						gen_code.push_str(&format!("str RR\nunlink\nsts -{}\najs -{}\nret\n", args_len, args_len - 1));
+					} else {
+						gen_code.push_str("str RR\nunlink\nret\n");
+					}
+				},
+				None => {
+					// In this case we are a void function so no point is storing the return value
+					if args_len > 0 {
+						gen_code.push_str(&format!("unlink\nsts -{}\najs -{}\nret\n", args_len, args_len - 1));
+					} else {
+						gen_code.push_str("unlink\nret\n");
+					}
+				}
+			}
 		},
 		_ => unimplemented!()
 	}
@@ -205,7 +241,7 @@ fn generate_expression(expr: &Expression, global_vars: &[(Ident, Type)], param_v
 			// Branch to the function. This will clean up the stack after itself.
 			gen_code.push_str(&format!("bsr {}\n", ident));
 
-			// Put the return value on the stack
+			// Put the return value on the stack for the caller to use
 			gen_code.push_str("ldr RR\n");
 		},
 		Expression::Tuple(ref left, ref right) => {

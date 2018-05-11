@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate combine;
+extern crate rand;
 
 use std::env;
 use std::fs::File;

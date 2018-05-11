@@ -1,5 +1,6 @@
 use parser::{Ident, SPL, Function, Variable, Type, Statement, Expression, Field, Op2, Op1, Literal};
 use std::collections::HashMap;
+use rand::{self, Rng};
 
 pub fn code_generator(ast: &SPL, expr_type: HashMap<*const Expression, Type>) -> String {
 	// Store the top of the stack + 1 in R5
@@ -118,7 +119,7 @@ fn generate_expression(expr: &Expression, global_vars: &Vec<(Ident, Type)>, para
 		},
 		Expression::Op2(ref lexpr, ref op2, ref rexpr) => {
 			// Split into a separate function for convenience
-			generate_op2(true, lexpr, op2, rexpr, &mut gen_code, global_vars, param_vars, local_vars, expr_type);
+			generate_op2(None, lexpr, op2, rexpr, &mut gen_code, global_vars, param_vars, local_vars, expr_type);
 		},
 		Expression::Op1(ref op, ref expr) => {
 			gen_code.push_str(&generate_expression(expr, global_vars, param_vars, local_vars, expr_type));
@@ -174,12 +175,12 @@ fn generate_expression(expr: &Expression, global_vars: &Vec<(Ident, Type)>, para
 	gen_code
 }
 
-fn generate_op2(eval: bool, lexpr: &Expression, op2: &Op2, rexpr: &Expression, gen_code: &mut String, global_vars: &Vec<(Ident, Type)>,
+fn generate_op2(type_known: Option<Type>, lexpr: &Expression, op2: &Op2, rexpr: &Expression, gen_code: &mut String, global_vars: &Vec<(Ident, Type)>,
 	param_vars: &Vec<(Ident, Type)>, local_vars: &Vec<(Ident, Type)>, expr_type: &HashMap<*const Expression, Type>) {
 
 	// In almost all cases we want to evaluate the left and right side. How we deal with the result of this is specific
 	// to the operator.
-	if eval {
+	if type_known.is_none() {
 		gen_code.push_str(&generate_expression(lexpr, global_vars, param_vars, local_vars, expr_type));
 		gen_code.push_str(&generate_expression(rexpr, global_vars, param_vars, local_vars, expr_type));
 	}
@@ -199,67 +200,65 @@ fn generate_op2(eval: bool, lexpr: &Expression, op2: &Op2, rexpr: &Expression, g
 		Op2::Or => gen_code.push_str("or\n"),
 		// These operators can have pointers thus require more work
 		Op2::Equals => {
-			// TODO: fix this + remove debug
-			println!("{:?}", expr_type.get(&(lexpr as *const Expression)));
-			println!("{:?}", expr_type.get(&(rexpr as *const Expression)));
-			match expr_type.get(&(lexpr as *const Expression)).unwrap() {
-				| &Type::TInt
-				| &Type::TBool
-				| &Type::TChar => gen_code.push_str("eq\n"),
-				&Type::TTuple(_, _) => {
-					let (fst_lexpr, snd_lexpr) = match lexpr {
-						&Expression::Tuple(ref l, ref r) => (l, r),
-						_ => unreachable!()
-					};
-					let (fst_rexpr, snd_rexpr) = match rexpr {
-						&Expression::Tuple(ref l, ref r) => (l, r),
-						_ => unreachable!()
-					};
+			let type_known = if type_known.is_none() {
+				expr_type.get(&(lexpr as *const Expression)).unwrap().clone()
+			} else {
+				type_known.unwrap()
+			};
 
+			match type_known {
+				| Type::TInt
+				| Type::TBool
+				| Type::TChar => gen_code.push_str("eq\n"),
+				Type::TTuple(ref l, ref r) => {
 					gen_code.push_str("lds 0\nldh 0\nlds -2\nldh 0\n");
-					generate_op2(false, fst_lexpr, op2, fst_rexpr, gen_code, global_vars, param_vars, local_vars, expr_type);
+					generate_op2(Some((**l).clone()), lexpr, op2, rexpr, gen_code, global_vars, param_vars, local_vars, expr_type);
 
 					gen_code.push_str("lds -1\nldh -1\nlds -3\nldh -1\n");
-					generate_op2(false, snd_lexpr, op2, snd_rexpr, gen_code, global_vars, param_vars, local_vars, expr_type);
+					generate_op2(Some((**r).clone()), lexpr, op2, rexpr, gen_code, global_vars, param_vars, local_vars, expr_type);
 
-					gen_code.push_str("and\nsts -2\najs -1\n");
+					gen_code.push_str("eq\nsts -2\najs -1\n");
 				},
-				&Type::TList(_) => {
-					println!("{:?}|{:?}", lexpr, rexpr);
-					let option_lexpr = match lexpr {
-						&Expression::Op2(ref l, Op2::Cons, ref r) => Some((l, r)),
-						&Expression::Lit(_) => None,
-						_ => unreachable!()
-					};
-					let option_rexpr = match rexpr {
-						&Expression::Op2(ref l, Op2::Cons, ref r) => Some((l, r)),
-						&Expression::Lit(_) => None,
-						_ => unreachable!()
-					};
+				Type::TList(ref inner) => {
+					// This code needs to jump/loop so generate labels for it
+					let random_label = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+					let random_label2 = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+					let random_label3 = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+					gen_code.push_str(&format!("{}:\n", random_label));
 
-					if option_lexpr.is_none() && option_rexpr.is_none() {
-						gen_code.push_str("lds 0\nldh -1\nlds -2\nldh -1\neq\nsts -2\najs -1\n");
-					} else if option_lexpr.is_none() || option_rexpr.is_none() {
-						gen_code.push_str("ldc 0\nsts -2\najs -1\n");
-					} else {
-						gen_code.push_str("lds 0\nldh 0\nlds -2\nldh 0\n");
-						generate_op2(false, option_lexpr.unwrap().0, op2, option_rexpr.unwrap().0, gen_code, global_vars, param_vars, local_vars, expr_type);
+					// Checks the tail of the list to see if only one of the two has an empty list as tail.
+					// If that's the case we know for sure the lists are not equal (since they have different length).
+					gen_code.push_str(&format!("lds 0\nldh -1\nlds -2\nldh -1\nldc 0\neq\nlds -1\nldc 0\neq\neq\nsts -1\nbrf {}\n", random_label2));
 
-						gen_code.push_str("lds -1\nldh -1\nlds -3\nldh -1\n");
-						generate_op2(false, option_lexpr.unwrap().1, op2, option_rexpr.unwrap().1, gen_code, global_vars, param_vars, local_vars, expr_type);
+					// Load values from the heap
+					gen_code.push_str("ajs 1\nlds -1\nldh 0\nlds -3\nldh 0\n");
 
-						gen_code.push_str("and\nsts -2\najs -1\n");
-					}
-				},
-				&Type::TVoid => {
-					println!("wtf tvoid");
-					unreachable!()
+					// Check explicitly if we're at the emptylist so we don't accidentally try to dereference
+					// a null pointer.
+					gen_code.push_str(&format!("lds 0\nlds -2\neq\nbrt {}\n", random_label3));
+
+					// Compare the heads of lists
+					generate_op2(Some((**inner).clone()), lexpr, op2, rexpr, gen_code, global_vars, param_vars, local_vars, expr_type);
+					gen_code.push_str(&format!("eq\nbrf {}\nldh -1\najs -1\nldh -1\najs 1\nbra {}\n", random_label2, random_label));
+
+					// In case we had an empty list we need to do a bit of stack adjustment before falling through.
+					gen_code.push_str(&format!("{}:\n", random_label3));
+					gen_code.push_str("ajs -3\n");
+
+					// Cleanup
+					gen_code.push_str(&format!("{}:\n", random_label2));
+					gen_code.push_str("ajs 1\nsts -2\najs -1\n");
 				},
 				_ => unreachable!()
 			}
 		},
 		Op2::NotEquals => {
-			generate_op2(false, lexpr, &Op2::Equals, rexpr, gen_code, global_vars, param_vars, local_vars, expr_type);
+			let type_known = if type_known.is_none() {
+				expr_type.get(&(lexpr as *const Expression)).unwrap().clone()
+			} else {
+				type_known.unwrap()
+			};
+			generate_op2(Some(type_known), lexpr, &Op2::Equals, rexpr, gen_code, global_vars, param_vars, local_vars, expr_type);
 			gen_code.push_str("not\n");
 		},
 		Op2::Cons => {

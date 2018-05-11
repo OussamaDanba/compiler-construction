@@ -5,3 +5,4 @@ authors = ["Oussama Danba <OussamaDanba@gmail.com>"]
 
 [dependencies]
 combine = "2.5.2"
+rand = "0.4.2"

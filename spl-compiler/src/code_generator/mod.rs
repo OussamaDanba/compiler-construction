@@ -127,6 +127,25 @@ fn generate_statements(stmt: &Statement, fun: &Function, global_vars: &[(Ident, 
 
 			gen_code.push_str(&format!("{}:\n", random_label2));
 		},
+		Statement::While(ref expr, ref stmts) => {
+			let random_label = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+			let random_label2 = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+
+			// Always immediately jump to checking the expression. The code where it jumps to will jump back if necessary
+			gen_code.push_str(&format!("bra {}\n", random_label2));
+
+			// Generate code for the content of the while statement
+			gen_code.push_str(&format!("{}:\n", random_label));
+			for while_stmt in stmts {
+				gen_code.push_str(&generate_statements(while_stmt, fun, global_vars, param_vars, local_vars, expr_type));
+			}
+
+			// Generate code for checking the expression. If the expression is False this will fall through and continue
+			// executing ignoring the contents of the while statement.
+			gen_code.push_str(&format!("{}:\n", random_label2));
+			gen_code.push_str(&generate_expression(expr, global_vars, param_vars, local_vars, expr_type));
+			gen_code.push_str(&format!("brt {}\n", random_label));
+		},
 		Statement::Assignment(ref ident, ref fields, ref expr) => {
 			// Evaluate the expression and put it on the stack
 			gen_code.push_str(&generate_expression(expr, global_vars, param_vars, local_vars, expr_type));
@@ -187,8 +206,7 @@ fn generate_statements(stmt: &Statement, fun: &Function, global_vars: &[(Ident, 
 					}
 				}
 			}
-		},
-		_ => unimplemented!()
+		}
 	}
 
 	gen_code

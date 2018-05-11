@@ -164,7 +164,7 @@ impl fmt::Display for Function {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}({}){} {{\n{}{}}}",
 			self.name,
-			self.args.iter().map(|x| format!("{}", x)).collect::<Vec<String>>().join(", "),
+			self.args.iter().map(|x| x.to_string()).collect::<Vec<String>>().join(", "),
 			format!(" :: {}", self.ftype),
 			indent(&self.vars.iter().map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat()),
 			indent(&self.stmts.iter().map(|x| format!("{}\n", x)).collect::<Vec<String>>().concat())
@@ -239,11 +239,11 @@ impl fmt::Display for Expression {
 					_ => format!("{}", exp2)
 				})
 			},
-			Expression::Op1(ref op1, ref exp) => format!("{}", match **exp {
+			Expression::Op1(ref op1, ref exp) => match **exp {
 				// We need this otherwise we end up with "!a && b" instead of "!(a && b)".
 				Expression::Op2(_, _, _) => format!("{}({})", op1, exp),
 				_ => format!("{}{}", op1, exp)
-			}),
+			},
 			Expression::Lit(ref lit) => format!("{}", lit),
 			Expression::FunCall(ref ident, ref exps) => format!("{}({})", ident,
 				exps.iter().map(|x| format!("{}", x)).collect::<Vec<String>>().join(", ")),

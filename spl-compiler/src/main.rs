@@ -78,7 +78,7 @@ fn main() {
 		return;
 	}
 
-	let generated_code = code_generator::code_generator(&spl, sem_result.unwrap());
+	let generated_code = code_generator::code_generator(&spl, &sem_result.unwrap());
 
 	let mut output_filename = filename.to_owned();
 	output_filename.push_str(".ssm");

@@ -1,8 +1,8 @@
-use parser::{Ident, SPL, Function, Variable, Type, Statement, Expression, Field, Op2, Op1, Literal};
+use parser::{Ident, SPL, Variable, Type, Statement, Expression, Field, Op2, Op1, Literal};
 use std::collections::HashMap;
 use rand::{self, Rng};
 
-pub fn code_generator(ast: &SPL, expr_type: HashMap<*const Expression, Type>) -> String {
+pub fn code_generator(ast: &SPL, expr_type: &HashMap<*const Expression, Type>) -> String {
 	// Store the top of the stack + 1 in R5
 	let top = String::from("ldrr R5 SP\n");
 
@@ -12,7 +12,7 @@ pub fn code_generator(ast: &SPL, expr_type: HashMap<*const Expression, Type>) ->
 	format!("{}{}bsr main\nhalt\n{}", top, gen_code, generate_functions(ast, &global_vars, &expr_type))
 }
 
-fn generate_globals(vars: &Vec<Variable>, expr_type: &HashMap<*const Expression, Type>) -> (Vec<(Ident, Type)>, String) {
+fn generate_globals(vars: &[Variable], expr_type: &HashMap<*const Expression, Type>) -> (Vec<(Ident, Type)>, String) {
 	// We need to store all the global variables we have somewhere so that we can find them later when evaluating expressions
 	let mut global_vars = Vec::new();
 	for var in vars {
@@ -27,7 +27,7 @@ fn generate_globals(vars: &Vec<Variable>, expr_type: &HashMap<*const Expression,
 	(global_vars, gen_code)
 }
 
-fn generate_functions(ast: &SPL, global_vars: &Vec<(Ident, Type)>, expr_type: &HashMap<*const Expression, Type>) -> String {
+fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &HashMap<*const Expression, Type>) -> String {
 	let mut gen_code = String::new();
 	for fun in &ast.funs {
 		// print and isEmpty require special handling as they are polymorphic
@@ -66,13 +66,16 @@ fn generate_functions(ast: &SPL, global_vars: &Vec<(Ident, Type)>, expr_type: &H
 			}
 
 			// Code for the statements:
-			// TODO: actually write the code
+			for stmt in &fun.stmts {
+				let statement_code = generate_statements(stmt, global_vars, &param_vars, &local_vars, expr_type);
+				gen_code.push_str(&statement_code);
+			}
 
 			// TODO: store in RR (don't forget about void functions!)
 
 			// Function clean up routine. Clears the entire stack frame. (including the parameters the previous function
 			// set on the stack for this function)
-			if fun_args.len() > 0 {
+			if !fun_args.is_empty() {
 				gen_code.push_str(&format!("unlink\nsts -{}\najs -{}\nret\n", fun_args.len(), fun_args.len() - 1));
 			} else {
 				gen_code.push_str("unlink\nret\n");
@@ -91,15 +94,22 @@ fn generate_functions(ast: &SPL, global_vars: &Vec<(Ident, Type)>, expr_type: &H
 	gen_code
 }
 
+fn generate_statements(stmt: &Statement, global_vars: &[(Ident, Type)], param_vars: &[(Ident, Type)],
+	local_vars: &[(Ident, Type)], expr_type: &HashMap<*const Expression, Type>) -> String {
+
+	// TODO: finish
+	String::new()
+}
+
 // Expression can contain variables of all scopes so we need to pass which variables are present in what scope
 // so that the generated code uses the correct variable.
-fn generate_expression(expr: &Expression, global_vars: &Vec<(Ident, Type)>, param_vars: &Vec<(Ident, Type)>,
-	local_vars: &Vec<(Ident, Type)>, expr_type: &HashMap<*const Expression, Type>) -> String {
+fn generate_expression(expr: &Expression, global_vars: &[(Ident, Type)], param_vars: &[(Ident, Type)],
+	local_vars: &[(Ident, Type)], expr_type: &HashMap<*const Expression, Type>) -> String {
 
 	let mut gen_code = String::new();
 	match *expr {
 		Expression::Ident(ref ident, ref fields) => {
-			let (var, code) = find_identifier(ident, global_vars, param_vars, local_vars);
+			let (_, code) = find_identifier(ident, global_vars, param_vars, local_vars);
 			gen_code.push_str(&code);
 
 			if !fields.is_empty() {
@@ -179,8 +189,8 @@ fn generate_expression(expr: &Expression, global_vars: &Vec<(Ident, Type)>, para
 	gen_code
 }
 
-fn generate_op2(type_known: Option<Type>, lexpr: &Expression, op2: &Op2, rexpr: &Expression, gen_code: &mut String, global_vars: &Vec<(Ident, Type)>,
-	param_vars: &Vec<(Ident, Type)>, local_vars: &Vec<(Ident, Type)>, expr_type: &HashMap<*const Expression, Type>) {
+fn generate_op2(type_known: Option<Type>, lexpr: &Expression, op2: &Op2, rexpr: &Expression, gen_code: &mut String, global_vars: &[(Ident, Type)],
+	param_vars: &[(Ident, Type)], local_vars: &[(Ident, Type)], expr_type: &HashMap<*const Expression, Type>) {
 
 	// In almost all cases we want to evaluate the left and right side. How we deal with the result of this is specific
 	// to the operator.
@@ -279,31 +289,22 @@ fn generate_op2(type_known: Option<Type>, lexpr: &Expression, op2: &Op2, rexpr: 
 
 // A helper function to find an identifier and puts it at the top of the stack. First checks the local variables,
 // then the parameters, and only then the global variables.
-fn find_identifier<'a>(ident: &Ident, global_vars: &'a Vec<(Ident, Type)>, param_vars: &'a Vec<(Ident, Type)>,
-	local_vars: &'a Vec<(Ident, Type)>) -> (&'a (Ident, Type), String) {
+fn find_identifier<'a>(ident: &str, global_vars: &'a [(Ident, Type)], param_vars: &'a [(Ident, Type)],
+	local_vars: &'a [(Ident, Type)]) -> (&'a (Ident, Type), String) {
 
-	match local_vars.iter().position(|ref x| x.0 == *ident) {
-		Some(pos) => {
-			return (&local_vars[pos], format!("ldl {}\n", pos + 1));
-		},
-		None => ()
-	}
+	if let Some(pos) = local_vars.iter().position(|ref x| x.0 == *ident) {
+		return (&local_vars[pos], format!("ldl {}\n", pos + 1));
+	};
 
-	match param_vars.iter().position(|ref x| x.0 == *ident) {
-		Some(pos) => {
-			// Note that we skip over the return address!
-			return (&param_vars[pos], format!("ldl -{}\n", pos + 2));
-		},
-		None => ()
-	}
+	if let Some(pos) = param_vars.iter().position(|ref x| x.0 == *ident) {
+		// Note that we skip over the return address!
+		return (&param_vars[pos], format!("ldl -{}\n", pos + 2));
+	};
 
-	match global_vars.iter().position(|ref x| x.0 == *ident) {
-		Some(pos) => {
-			// Push R5 on the stack and use it to load the global variable
-			return (&global_vars[pos], format!("ldr R5\nlda {}\n", pos + 1));
-		},
-		None => ()
-	}
+	if let Some(pos) = global_vars.iter().position(|ref x| x.0 == *ident) {
+		// Push R5 on the stack and use it to load the global variable
+		return (&global_vars[pos], format!("ldr R5\nlda {}\n", pos + 1));
+	};
 
 	panic!("Unreachable code in find_identifier")
 }

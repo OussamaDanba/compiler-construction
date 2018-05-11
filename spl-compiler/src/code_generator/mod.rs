@@ -97,8 +97,42 @@ fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &Hash
 fn generate_statements(stmt: &Statement, global_vars: &[(Ident, Type)], param_vars: &[(Ident, Type)],
 	local_vars: &[(Ident, Type)], expr_type: &HashMap<*const Expression, Type>) -> String {
 
-	// TODO: finish
-	String::new()
+	let mut gen_code = String::new();
+
+	match *stmt {
+		Statement::Assignment(ref ident, ref fields, ref expr) => {
+			// Evaluate the expression and put it on the stack
+			gen_code.push_str(&generate_expression(expr, global_vars, param_vars, local_vars, expr_type));
+
+			// Put the address of the identifier (with its fields) on the stack.
+			let (_, code) = find_identifier(true, ident, global_vars, param_vars, local_vars);
+			gen_code.push_str(&code);
+
+			gen_code = fields.iter().fold(gen_code, |mut acc, ref x| {
+				match **x {
+					Field::First => { acc.push_str("lda 0\n"); acc },
+					Field::Second => { acc.push_str("lda 0\nldc 1\nsub\n"); acc },
+					// First we check if we are dealing with an empty list since hd/tl can not be checked at compile
+					// time for that. We simply abort if that is the case as we were given wrong code.
+					Field::Head => {
+						acc.push_str("lda 0\nlds 0\nldmh 0 2\nswp\nldc 0\neq\nbrt RuntimeErr\najs -1\n");
+						acc
+					},
+					Field::Tail => {
+						// Does this handle every failure case?
+						acc.push_str("lda 0\nlds 0\nldh -1\nlds 0\nldc 0\neq\nbrt RuntimeErr\najs -1\n");
+						acc
+					}
+				}
+			});
+
+			// Store result of the expression at the address of the identifier (with its fields)
+			gen_code.push_str("sta 0\n");
+		},
+		_ => unimplemented!()
+	}
+
+	gen_code
 }
 
 // Expression can contain variables of all scopes so we need to pass which variables are present in what scope
@@ -109,27 +143,27 @@ fn generate_expression(expr: &Expression, global_vars: &[(Ident, Type)], param_v
 	let mut gen_code = String::new();
 	match *expr {
 		Expression::Ident(ref ident, ref fields) => {
-			let (_, code) = find_identifier(ident, global_vars, param_vars, local_vars);
+			let (_, code) = find_identifier(false, ident, global_vars, param_vars, local_vars);
 			gen_code.push_str(&code);
 
-			if !fields.is_empty() {
-				gen_code = fields.iter().fold(gen_code, |mut acc, ref x| {
-					match **x {
-						Field::First => { acc.push_str("ldh 0\n"); acc },
-						Field::Second => { acc.push_str("ldh -1\n"); acc },
-						// First we check if we are dealing with an empty list since hd/tl can not be checked at compile
-						// time for that. We simply abort if that is the case as we were given wrong code.
-						Field::Head => {
-							acc.push_str("ldmh 0 2\nswp\nldc 0\neq\nbrt RuntimeErr\n");
-							acc
-						},
-						Field::Tail => {
-							acc.push_str("ldh -1\nlds 0\nldc 0\neq\nbrt RuntimeErr\n");
-							acc
-						}
+			// Only does something if fields is not empty
+			gen_code = fields.iter().fold(gen_code, |mut acc, ref x| {
+				match **x {
+					Field::First => { acc.push_str("ldh 0\n"); acc },
+					Field::Second => { acc.push_str("ldh -1\n"); acc },
+					// First we check if we are dealing with an empty list since hd/tl can not be checked at compile
+					// time for that. We simply abort if that is the case as we were given wrong code.
+					Field::Head => {
+						acc.push_str("ldmh 0 2\nswp\nldc 0\neq\nbrt RuntimeErr\n");
+						acc
+					},
+					Field::Tail => {
+						// Does this handle every failure case?
+						acc.push_str("ldh -1\nlds 0\nldc 0\neq\nbrt RuntimeErr\n");
+						acc
 					}
-				});
-			}
+				}
+			});
 		},
 		Expression::Op2(ref lexpr, ref op2, ref rexpr) => {
 			// Split into a separate function for convenience
@@ -289,21 +323,22 @@ fn generate_op2(type_known: Option<Type>, lexpr: &Expression, op2: &Op2, rexpr: 
 
 // A helper function to find an identifier and puts it at the top of the stack. First checks the local variables,
 // then the parameters, and only then the global variables.
-fn find_identifier<'a>(ident: &str, global_vars: &'a [(Ident, Type)], param_vars: &'a [(Ident, Type)],
+// The first argument is used to indicate we want a pointer to that value or the actual value.
+fn find_identifier<'a>(ret_addr: bool, ident: &str, global_vars: &'a [(Ident, Type)], param_vars: &'a [(Ident, Type)],
 	local_vars: &'a [(Ident, Type)]) -> (&'a (Ident, Type), String) {
 
 	if let Some(pos) = local_vars.iter().position(|ref x| x.0 == *ident) {
-		return (&local_vars[pos], format!("ldl {}\n", pos + 1));
+		return (&local_vars[pos], format!("ldl{} {}\n", if ret_addr { "a" } else { "" }, pos + 1));
 	};
 
 	if let Some(pos) = param_vars.iter().position(|ref x| x.0 == *ident) {
 		// Note that we skip over the return address!
-		return (&param_vars[pos], format!("ldl -{}\n", pos + 2));
+		return (&param_vars[pos], format!("ldl{} -{}\n", if ret_addr { "a" } else { "" }, pos + 2));
 	};
 
 	if let Some(pos) = global_vars.iter().position(|ref x| x.0 == *ident) {
 		// Push R5 on the stack and use it to load the global variable
-		return (&global_vars[pos], format!("ldr R5\nlda {}\n", pos + 1));
+		return (&global_vars[pos], format!("ldr R5\nlda{} {}\n", if ret_addr { "a" } else { "" }, pos + 1));
 	};
 
 	panic!("Unreachable code in find_identifier")

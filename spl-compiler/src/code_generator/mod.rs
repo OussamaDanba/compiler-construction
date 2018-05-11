@@ -19,8 +19,12 @@ fn generate_globals(vars: &Vec<Variable>, expr_type: &HashMap<*const Expression,
 		global_vars.push((var.name.clone(), var.vtype.clone()));
 	}
 
-	// TODO
-	(global_vars, String::new())
+	let mut gen_code = String::new();
+	for var in vars {
+		gen_code.push_str(&generate_expression(&var.value, &global_vars, &Vec::new(), &Vec::new(), expr_type));
+	}
+
+	(global_vars, gen_code)
 }
 
 fn generate_functions(ast: &SPL, global_vars: &Vec<(Ident, Type)>, expr_type: &HashMap<*const Expression, Type>) -> String {
@@ -296,7 +300,7 @@ fn find_identifier<'a>(ident: &Ident, global_vars: &'a Vec<(Ident, Type)>, param
 	match global_vars.iter().position(|ref x| x.0 == *ident) {
 		Some(pos) => {
 			// Push R5 on the stack and use it to load the global variable
-			return (&global_vars[pos], format!("ldr R5\nlda {}\n", pos));
+			return (&global_vars[pos], format!("ldr R5\nlda {}\n", pos + 1));
 		},
 		None => ()
 	}

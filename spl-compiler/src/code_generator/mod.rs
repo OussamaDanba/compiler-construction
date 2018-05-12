@@ -84,8 +84,12 @@ fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &Hash
 					}
 				}
 			};
-		} else {
+		} else if fun.name == "print" {
 			// TODO: special handling
+		} else if fun.name == "isEmpty" {
+			// isEmpty only has a list as argument and no locals and returns a bool
+			// isEmpty is easy to implement since we only have to check whether the second pointer points to 0x0 or not
+			gen_code.push_str("isEmpty:\nlink 0\nldl -2\nldh -1\nldc 0\neq\nstr RR\nunlink\nsts -1\nret\n");
 		}
 	}
 

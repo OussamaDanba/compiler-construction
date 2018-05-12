@@ -106,8 +106,50 @@ fn generate_statements(stmt: &Statement, fun: &Function, global_vars: &[(Ident, 
 	local_vars: &[(Ident, Type)], expr_type: &HashMap<*const Expression, Type>) -> String {
 
 	let mut gen_code = String::new();
-
 	match *stmt {
+		Statement::If(ref expr, ref if_stmts, ref else_stmts) => {
+			let random_label = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+			let random_label2 = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+
+			// Evaluate the expression in the if-statement and put it on the stack
+			gen_code.push_str(&generate_expression(expr, global_vars, param_vars, local_vars, expr_type));
+
+			// Jump to the else statements if the expression resulted in False
+			gen_code.push_str(&format!("brf {}\n", random_label));
+
+			// Statements for the if branch
+			for if_stmt in if_stmts {
+				gen_code.push_str(&generate_statements(if_stmt, fun, global_vars, param_vars, local_vars, expr_type));
+			}
+			gen_code.push_str(&format!("bra {}\n", random_label2));
+
+			// Statements for the else branch
+			gen_code.push_str(&format!("{}:\n", random_label));
+			for else_stmt in else_stmts {
+				gen_code.push_str(&generate_statements(else_stmt, fun, global_vars, param_vars, local_vars, expr_type));
+			}
+
+			gen_code.push_str(&format!("{}:\n", random_label2));
+		},
+		Statement::While(ref expr, ref stmts) => {
+			let random_label = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+			let random_label2 = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+
+			// Always immediately jump to checking the expression. The code where it jumps to will jump back if necessary
+			gen_code.push_str(&format!("bra {}\n", random_label2));
+
+			// Generate code for the content of the while statement
+			gen_code.push_str(&format!("{}:\n", random_label));
+			for while_stmt in stmts {
+				gen_code.push_str(&generate_statements(while_stmt, fun, global_vars, param_vars, local_vars, expr_type));
+			}
+
+			// Generate code for checking the expression. If the expression is False this will fall through and continue
+			// executing ignoring the contents of the while statement.
+			gen_code.push_str(&format!("{}:\n", random_label2));
+			gen_code.push_str(&generate_expression(expr, global_vars, param_vars, local_vars, expr_type));
+			gen_code.push_str(&format!("brt {}\n", random_label));
+		},
 		Statement::Assignment(ref ident, ref fields, ref expr) => {
 			// Evaluate the expression and put it on the stack
 			gen_code.push_str(&generate_expression(expr, global_vars, param_vars, local_vars, expr_type));
@@ -168,8 +210,7 @@ fn generate_statements(stmt: &Statement, fun: &Function, global_vars: &[(Ident, 
 					}
 				}
 			}
-		},
-		_ => unimplemented!()
+		}
 	}
 
 	gen_code

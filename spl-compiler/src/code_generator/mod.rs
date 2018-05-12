@@ -367,7 +367,20 @@ fn generate_print(expr_type: &Type) -> String {
 			// Print ')'
 			gen_code.push_str("ldc 41\ntrap 1\najs -1\n");
 		},
-		_ => unimplemented!()
+		Type::TList(ref inner) => {
+			let random_label = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+			let random_label2 = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+
+			// Loop that continuously print the head of the list. Jumps to random_label2 if it encounters an empty list.
+			gen_code.push_str(&format!("{}:\nlds 0\nldh -1\nldc 0\neq\nbrt {}\nlds 0\nldh 0\n", random_label, random_label2));
+			gen_code.push_str(&generate_print(inner));
+			gen_code.push_str(&format!("ldc 58\ntrap 1\nldh -1\nbra {}\n", random_label));
+
+			// Print the empty list
+			gen_code.push_str(&format!("{}:\nldc 91\ntrap 1\nldc 93\ntrap 1\najs -1\n", random_label2));
+		},
+		Type::TVoid => (),
+		_ => unreachable!()
 	}
 
 	gen_code
@@ -447,6 +460,7 @@ fn generate_op2(type_known: Option<Type>, lexpr: &Expression, op2: &Op2, rexpr: 
 					gen_code.push_str(&format!("{}:\n", random_label2));
 					gen_code.push_str("ajs 1\nsts -2\najs -1\n");
 				},
+				Type::TVoid => (),
 				_ => unreachable!()
 			}
 		},

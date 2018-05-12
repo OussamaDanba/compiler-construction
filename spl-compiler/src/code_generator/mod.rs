@@ -286,6 +286,9 @@ fn generate_expression(expr: &Expression, global_vars: &[(Ident, Type)], param_v
 				// print is guaranteed to only have one expression and has return type Void
 				let expr_type = expr_type.get(&(&exprs[0] as *const Expression)).unwrap();
 				gen_code.push_str(&generate_print(expr_type));
+
+				// Add a newline at the end
+				gen_code.push_str("ldc 10\ntrap 1\n");
 			} else {
 				// Branch to the function. This will clean up the stack after itself.
 				gen_code.push_str(&format!("bsr {}\n", ident));
@@ -345,11 +348,27 @@ fn generate_print(expr_type: &Type) -> String {
 		},
 		Type::TChar => {
 			gen_code.push_str("trap 1\n");
-		}
+		},
+		Type::TTuple(ref l, ref r) => {
+			// Print '('
+			gen_code.push_str("ldc 40\ntrap 1\n");
+
+			// Print first element of tuple
+			gen_code.push_str("lds 0\nldh 0\n");
+			gen_code.push_str(&generate_print(l));
+
+			// Print ','
+			gen_code.push_str("ldc 44\ntrap 1\n");
+
+			// Print second element of tuple
+			gen_code.push_str("lds 0\nldh -1\n");
+			gen_code.push_str(&generate_print(r));
+
+			// Print ')'
+			gen_code.push_str("ldc 41\ntrap 1\najs -1\n");
+		},
 		_ => unimplemented!()
 	}
-
-	// TODO: add a newline at the end since a user can not do print('\n') since the syntax does not allow that
 
 	gen_code
 }

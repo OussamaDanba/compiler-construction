@@ -85,7 +85,8 @@ fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &Hash
 				}
 			};
 		} else if fun.name == "print" {
-			// TODO: special handling
+			// Not done here. print is generated inline since we need to know the type information it's passed
+			// to generate the function.
 		} else if fun.name == "isEmpty" {
 			// isEmpty only has a list as argument and no locals and returns a bool
 			// isEmpty is easy to implement since we only have to check whether the second pointer points to 0x0 or not
@@ -169,7 +170,6 @@ fn generate_statements(stmt: &Statement, fun: &Function, global_vars: &[(Ident, 
 						acc
 					},
 					Field::Tail => {
-						// Does this handle every failure case?
 						acc.push_str("lda 0\nlds 0\nldh -1\nlds 0\nldc 0\neq\nbrt RuntimeErr\najs -1\n");
 						acc
 					}
@@ -239,7 +239,6 @@ fn generate_expression(expr: &Expression, global_vars: &[(Ident, Type)], param_v
 						acc
 					},
 					Field::Tail => {
-						// Does this handle every failure case?
 						acc.push_str("ldh -1\nlds 0\nldc 0\neq\nbrt RuntimeErr\n");
 						acc
 					}
@@ -283,8 +282,14 @@ fn generate_expression(expr: &Expression, global_vars: &[(Ident, Type)], param_v
 				gen_code.push_str(&generate_expression(sub_expr, global_vars, param_vars, local_vars, expr_type));
 			}
 
-			// Branch to the function. This will clean up the stack after itself.
-			gen_code.push_str(&format!("bsr {}\n", ident));
+			if ident == "print" {
+				// print is guaranteed to only have one expression and has return type Void
+				let expr_type = expr_type.get(&(&exprs[0] as *const Expression)).unwrap();
+				gen_code.push_str(&generate_print(expr_type));
+			} else {
+				// Branch to the function. This will clean up the stack after itself.
+				gen_code.push_str(&format!("bsr {}\n", ident));
+			}
 
 			// Put the return value on the stack for the caller to use
 			gen_code.push_str("ldr RR\n");
@@ -300,6 +305,31 @@ fn generate_expression(expr: &Expression, global_vars: &[(Ident, Type)], param_v
 			gen_code.push_str("stmh 2\n");
 		}
 	}
+
+	gen_code
+}
+
+fn generate_print(expr_type: &Type) -> String {
+	let mut gen_code = String::new();
+	match *expr_type {
+		Type::TInt => {
+			// trap 0 adds a newline (WHY?!) so we have to implement printing an integer ourselves
+
+			let random_label = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+			let random_label2 = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+
+			// Assembly code that divides the number by 10 continuously until there is no more remainder.
+			// It puts n digits on the stack to be printed. The amount of digits is stored in R7.
+			gen_code.push_str(&format!("str R6\nldc 0\nstr R7\n{}:\nldr R6\nldc 10\nmod\nldc 48\nadd\nldr R7\n\
+				ldc 1\nadd\nstr R7\nldr R6\nldc 10\ndiv\nstr R6\najs 1\nldc 0\neq\nbrf {}\n", random_label, random_label));
+
+			// Print n digits from the stack. The amount of digits is stored in R7.
+			gen_code.push_str(&format!("{}:\ntrap 1\nldr R7\nldc 1\nsub\nstr R7\najs 1\nldc 0\neq\nbrf {}\n", random_label2, random_label2));
+		},
+		_ => unimplemented!()
+	}
+
+	// TODO: add a newline at the end since a user can not do print('\n') since the syntax does not allow that
 
 	gen_code
 }

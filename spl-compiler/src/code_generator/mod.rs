@@ -358,7 +358,7 @@ fn generate_print(expr_type: &Type) -> String {
 			gen_code.push_str(&generate_print(l));
 
 			// Print ','
-			gen_code.push_str("ldc 44\ntrap 1\n");
+			gen_code.push_str("ldc 44\ntrap 1\nldc 32\ntrap 1\n");
 
 			// Print second element of tuple
 			gen_code.push_str("lds 0\nldh -1\n");
@@ -374,7 +374,8 @@ fn generate_print(expr_type: &Type) -> String {
 			// Loop that continuously print the head of the list. Jumps to random_label2 if it encounters an empty list.
 			gen_code.push_str(&format!("{}:\nlds 0\nldh -1\nldc 0\neq\nbrt {}\nlds 0\nldh 0\n", random_label, random_label2));
 			gen_code.push_str(&generate_print(inner));
-			gen_code.push_str(&format!("ldc 58\ntrap 1\nldh -1\nbra {}\n", random_label));
+			// Print the " : ".
+			gen_code.push_str(&format!("ldc 32\ntrap 1\nldc 58\ntrap 1\nldc 32\ntrap 1\nldh -1\nbra {}\n", random_label));
 
 			// Print the empty list
 			gen_code.push_str(&format!("{}:\nldc 91\ntrap 1\nldc 93\ntrap 1\najs -1\n", random_label2));

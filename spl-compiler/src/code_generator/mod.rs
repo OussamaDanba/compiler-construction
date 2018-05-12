@@ -326,6 +326,26 @@ fn generate_print(expr_type: &Type) -> String {
 			// Print n digits from the stack. The amount of digits is stored in R7.
 			gen_code.push_str(&format!("{}:\ntrap 1\nldr R7\nldc 1\nsub\nstr R7\najs 1\nldc 0\neq\nbrf {}\n", random_label2, random_label2));
 		},
+		Type::TBool => {
+			let random_label = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+			let random_label2 = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+
+			// This code is a simply if/else where the if prints True and the Else prints False
+
+			gen_code.push_str(&format!("brf {}\n", random_label));
+
+			// Print True
+			gen_code.push_str("ldc 101\nldc 117\nldc 114\nldc 84\ntrap 1\ntrap 1\ntrap 1\ntrap 1\n");
+			gen_code.push_str(&format!("bra {}\n", random_label2));
+
+			// Print False
+			gen_code.push_str(&format!("{}:\n", random_label));
+			gen_code.push_str("ldc 101\nldc 115\nldc 108\nldc 97\nldc 70\ntrap 1\ntrap 1\ntrap 1\ntrap 1\ntrap 1\n");
+			gen_code.push_str(&format!("{}:\n", random_label2));
+		},
+		Type::TChar => {
+			gen_code.push_str("trap 1\n");
+		}
 		_ => unimplemented!()
 	}
 

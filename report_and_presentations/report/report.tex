@@ -1,8 +1,15 @@
 \documentclass{article}
 \usepackage[utf8]{inputenc}
 \usepackage[nounderscore]{syntax}
+\usepackage{listings, listings-rust}
 
-\title{Compiler Construction report}
+\lstset{tabsize=4}
+
+\renewcommand{\syntleft}{$\langle$\normalfont\ttfamily}
+\setlength{\grammarindent}{2cm}
+\setlength{\grammarparsep}{0cm}
+
+\title{SPL compiler in Rust report}
 \author{Oussama Danba}
 \date{\today}
 
@@ -10,115 +17,196 @@
 
 \maketitle
 
-% given grammar, note that <char> was added for completeness
-\renewcommand{\syntleft}{$\langle$\normalfont\ttfamily}
-\setlength{\grammarindent}{2cm}
-\setlength{\grammarparsep}{0cm}
-\begin{grammar}
-<SPL> = <Decl>+
+\section{Introduction}
+In this report I will describe my SPL compiler written in the programming language Rust. The report will mostly focus on the decisions made while implementing SPL rather than focusing on implementation details.
 
-<Decl> = <VarDecl> \\| <FunDecl>
-
-<VarDecl> = ('\textbf{var}' | <Type>) <id> '=' <Exp> ';'
-
-<FunDecl> = <id> '(' [ <FArgs> ] ')' [ '::' <FunType> ] '\{' <VarDecl>* <Stmt>+ '\}'
-
-<RetType> = <Type> \\| '\textbf{Void}'
-
-<FunType> = [ <FTypes> ] '$\rightarrow$' <RetType>
-
-<FTypes> = <Type> [ <FTypes> ]
-
-<Type> = <BasicType> \\| '(' <Type> ',' <Type> ')' \\| '[' <Type> ']' \\| <id>
-
-<BasicType> = '\textbf{Int}' \\| '\textbf{Bool}' \\| '\textbf{Char}'
-
-<FArgs> = [ <FArgs> ',' ] <id>
-
-<Stmt> = '\textbf{if}' '(' <Exp> ')' '\{' <Stmt>* '\}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
-
-<Exp> = <id> <Field> \\| <Exp> <Op2> <Exp> \\| <Op1> <Exp> \\| <int> \\| <char> \\| '\textbf{False}' \\| '\textbf{True}' \\| '(' <Exp> ')' \\| <FunCall> \\| '[]' \\| '(' <Exp> ',' <Exp> ')'
-
-<Field> = [ <Field> ( '.' '\textbf{hd}' | '.' '\textbf{tl}' | '.' '\textbf{fst}' | '.' '\textbf{snd}' ) ]
-
-<FunCall> = <id> '(' [ <ActArgs> ] ')'
-
-<ActArgs> = <Exp> [ ',' <ActArgs> ]
-
-<Op2> = '+' | '-' | '*' | '/' | '\%' | '==' | '\textless' | '\textgreater' | '\textless=' | '\textgreater=' | '!=' | '\&\&' | '||' | ':'
-
-<Op1> = '!' | '-'
-
-<int> = [ '-' ] digit+
-
-<char> = ' alpha '
-
-<id> = alpha ( '\_' | alphaNum)*
-\end{grammar}
-
-% grammar that the parser initially parsed (changed during semantic analysis)
-% BasicType moved into Type for easiness
-% FArgs turned around to remove left recursion. (result is the same)
-% Field split into Field and Field2 to remove left recursion.
-% Exp split up into parts to take operator precedence into account. <Exp> <Op2> <Exp> is no longer needed because it is encoded through the other means.
-\begin{grammar}
-<SPL> = <Decl>+
-
-<Decl> = <VarDecl> \\| <FunDecl>
-
-<VarDecl> = ('\textbf{var}' | <Type>) <id> '=' <Exp> ';'
-
-<FunDecl> = <id> '(' [ <FArgs> ] ')' [ '::' <FunType> ] '\{' <VarDecl>* <Stmt>+ '\}'
-
-<RetType> = <Type> \\| '\textbf{Void}'
-
-<FunType> = [ <FTypes> ] '$\rightarrow$' <RetType>
-
-<FTypes> = <Type> [ <FTypes> ]
-
-<Type> = '\textbf{Int}' \\| '\textbf{Bool}' \\| '\textbf{Char}' \\| '(' <Type> ',' <Type> ')' \\| '[' <Type> ']' \\| <id>
-
-<FArgs> = <id> [ <FArgs> ',' ]
-
-<Stmt> = '\textbf{if}' '(' <Exp> ')' '\{' <Stmt>* '\}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
-
-<Exp> = <Exp2> [ '||' <Exp> ]
-
-<Exp2> = <Exp3> [ '\&\&' <Exp2> ]
-
-<Exp3> = <Exp4> [ ':' <Exp3> ]
-
-<Exp4> = <Exp5> [ ( '==' | '\textless' | '\textgreater' | '\textless=' | '\textgreater=' | '!=' ) <Exp4> ]
-
-<Exp5> = <Exp6> [ ( '+' | '-' ) <Exp5> ]
-
-<Exp6> = <Exp7> [ ( '*' | '/' ) <Exp6> ]
-
-<Exp7> = <Exp8> [ '\%' <Exp7> ]
-
-<Exp8> = <id> <Field> \\| <Op1> <Exp> \\| <int> \\| <char> \\| '\textbf{False}' \\| '\textbf{True}' \\| '(' <Exp> ')' \\| <FunCall> \\| '[]' \\| '(' <Exp> ',' <Exp> ')'
-
-<Field> = <Field2>*
-
-<Field2> = '.' '\textbf{hd}' | '.' '\textbf{tl}' | '.' '\textbf{fst}' | '.' '\textbf{snd}'
-
-<FunCall> = <id> '(' [ <ActArgs> ] ')'
-
-<ActArgs> = <Exp> [ ',' <ActArgs> ]
-
-<Op1> = '!' | '-'
-
-<int> = [ '-' ] digit+
-
-<char> = ' alpha '
-
-<id> = alpha ( '\_' | alphaNum)*
-\end{grammar}
+The report is divided in the sections: Scanning and Parsing, Semantic Analysis, Code Generation, and Compiler Extension. This is done to reflect the course set-up.
 
 \section{Scanning and Parsing}
+The first thing to note here is that the scanner (also known as lexer) and parser are two separate entities. My primary reason for doing this is that it allows the parser to abstract from all whitespace since it is handled by the scanner. This would simplify the parser to only deal with the actual contents of the source code. Additionally it allowed me to work on the scanner before the lecture on parsers had occurred.
+
 \subsection{Scanner}
+For the sake of completeness the grammar the scanner considers is the one specified below. It is equivalent to the grammar provided except the missing $\langle$char$\rangle$ is added. In this slightly altered grammar a character is considered an alphabetic character surrounded by single quotation marks. Using the specified grammar we know all characters the scanner is supposed to handle.
+
+The scanner is implemented in a recursive manner. Initially it is given the source code of the entire program. The first thing it does is strip all the leading whitespace and then tries to ``scan'' what is left. This either results in a Token that is scanned or it results in an error as the scanner apparently does not recognize the given input and aborts. In the case it resulted in a Token it calls itself recursively with the rest of the input. Given a correct SPL program the scanner results in a list of Tokens.
+
+The idea is simple but there are some implementation details that need to be discussed. The tokens produced by the scanner are written down in Appendix~\ref{Appendix1}. One issue is that of code clarity. Having one large function produce all different types of Tokens makes it unmaintainable. As a result the code going from a String to a Token is split into separate functions which are applied after each other if the previous one fails. The code looks as follows:
+\begin{lstlisting}[language=Rust, style=boxed]
+let result = scan_comment(trimmed_input)
+	.or_else(|| scan_reserved(trimmed_input))
+	.or_else(|| scan_int(trimmed_input))
+	.or_else(|| scan_bool(trimmed_input))
+	.or_else(|| scan_char(trimmed_input))
+	.or_else(|| scan_identifiers(trimmed_input));
+\end{lstlisting}
+
+Another detail is that of comments. I opted to scan comments as the \texttt{TokenComment(String)} Token as we might want comments later. This ended up not being the case but the functionality is still there.
+
+The order of scanning the tokens is also relevant. In my implementation I've chosen to represent \texttt{::} and \texttt{->} as single Tokens instead of two separate tokens. If \texttt{TokenColon} would be scanned before \texttt{TokenDoubleColon} this would result in a wrong Token. Parsing it as a single Token instead of two separate Tokens is irrelevant for the parser but in my opinion it better separates what the Tokens are used for.
+
+Scanning negative numbers is a little tricky. Initially I scanned negative numbers to the \texttt{TokenInt(i64)} Token with the negative sign included. However this is a problem when making the parser. The expression \texttt{5 -4} is a correct expression but would result in two \texttt{TokenInt(i64)} Tokens. Since there is no binary operator in-between the parser will reject this. As such, I decided to always scan the negative sign as the TokenMinus Token and deal with negative numbers inside the parser rather than the scanner.
+
+One last detail that I feel was not adequately solved is the fact that the recursion is not a tail-recursion. This means that for potentially every character in the source String we have a new stack frame. Even in less extreme cases we result in a lot of stack frames. For longer programs I have experience Windows running out of stack space while Linux does not. This is because Windows has a stack size of 1MB be default while Linux has 8MB. Running into this limit for this course is unlikely but definitely something that I would do differently.
+
+My scanner supports fairly detailed error reporting as we're still working on the source string. It will report the line where it errored and in what context. To make error reporting during parsing possible the scanner does a little bit of extra work and remembers the position a Token what scanned at. The parser uses this to find the context in which a parsing error occurred. An example scanner error can be found below:
+\begin{lstlisting}[style=boxed]
+Scanner error at line 2 near ':
+	return';
+\end{lstlisting}
+
+\subsubsection*{Scanner Grammar:}
+\begin{grammar}
+	<SPL> = <Decl>+
+
+	<Decl> = <VarDecl> \\| <FunDecl>
+
+	<VarDecl> = ('\textbf{var}' | <Type>) <id> '=' <Exp> ';'
+
+	<FunDecl> = <id> '(' [ <FArgs> ] ')' [ '::' <FunType> ] '\{' <VarDecl>* <Stmt>+ '\}'
+
+	<RetType> = <Type> \\| '\textbf{Void}'
+
+	<FunType> = [ <FTypes> ] '$\rightarrow$' <RetType>
+
+	<FTypes> = <Type> [ <FTypes> ]
+
+	<Type> = <BasicType> \\| '(' <Type> ',' <Type> ')' \\| '[' <Type> ']' \\| <id>
+
+	<BasicType> = '\textbf{Int}' \\| '\textbf{Bool}' \\| '\textbf{Char}'
+
+	<FArgs> = [ <FArgs> ',' ] <id>
+
+	<Stmt> = '\textbf{if}' '(' <Exp> ')' '\{' <Stmt>* '\}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
+
+	<Exp> = <id> <Field> \\| <Exp> <Op2> <Exp> \\| <Op1> <Exp> \\| <int> \\| <char> \\| '\textbf{False}' \\| '\textbf{True}' \\| '(' <Exp> ')' \\| <FunCall> \\| '[]' \\| '(' <Exp> ',' <Exp> ')'
+
+	<Field> = [ <Field> ( '.' '\textbf{hd}' | '.' '\textbf{tl}' | '.' '\textbf{fst}' | '.' '\textbf{snd}' ) ]
+
+	<FunCall> = <id> '(' [ <ActArgs> ] ')'
+
+	<ActArgs> = <Exp> [ ',' <ActArgs> ]
+
+	<Op2> = '+' | '-' | '*' | '/' | '\%' | '==' | '\textless' | '\textgreater' | '\textless=' | '\textgreater=' | '!=' | '\&\&' | '||' | ':'
+
+	<Op1> = '!' | '-'
+
+	<int> = [ '-' ] digit+
+
+	<char> = ' alpha '
+
+	<id> = alpha ( '\_' | alphaNum)*
+\end{grammar}
 
 \subsection{Parser}
+To implement parsing I decided to use recursive descent parsing. In order to do this in Rust I needed a parser combinator library. The two main choices are \texttt{nom} and \texttt{combine}. I've opted to use \texttt{combine} as it closely mirrors Haskell's \texttt{parsec} which I've tried out before. There were a few hurdles to get it working in Rust. The smaller hurdle was that \texttt{combine} is typically used to parse Strings rather than Tokens. This means that some of the default combinators aren't really useful thus requiring me to write my own. The bigger hurdle was that combinators in \texttt{combine} are defined using Rust macros. This means that there are some compile-time text substitutions in the combinators which abstract away a lot of the type information. This tends to result in really cryptic errors since I have no idea what the underlying types are. This took a bit of time to get used to but towards the end I could typically write a combinator in one try. A minor annoyance was that combinators that fail at some point consume Tokens. So a choice combinator that fails on the first choice may consume input which has the effect that the other variants of the choice combinator will never apply. This often requires wrapping combinators in the try combinator to alleviate this issue. The parser that parses identifiers looks as follows:
+\begin{lstlisting}[language=Rust, style=boxed]
+parser!{
+	fn parse_identifier[I]()(I) -> Ident
+	  where [I: Stream<Item=Token>]
+	{
+		satisfy_map(|x: Token| match x {
+			Token::TokenIdentifier(ident) => Some(ident),
+			_ => None,
+		})
+	}
+}
+\end{lstlisting}
+
+Before implementing the parser I first decided to modify the grammar to solve some issues. These issues are operator precedence, associativity, and left-recursion. While the grammar that was parsed was altered this is barely reflected in the Abstract Syntax Tree. The AST is a straightforward data structure on how one would expect an SPL program to look. The altered grammar can be found below while the final AST (slightly modified for Semantic Analysis) can be found in Appendix~\ref{Appendix2}.
+
+The first change in the grammar is that $\langle$BasicType$\rangle$ has been moved into $\langle$Type$\rangle$. This is merely for convenience and doesn't affect the grammar in any way.
+
+A change that does matter is that $\langle$FArgs$\rangle$ has been changed to remove the left-recursion in it. Left-recursion is a problem for recursive descent parsers as it results in infinite recursion since no Tokens are ever consumed. Luckily changing $\langle$FArgs$\rangle$ to remove left-recursion is trivial. A similar left-recursion can be found in $\langle$Field$\rangle$. To remove left-recursion there $\langle$Field$\rangle$ is split into $\langle$Field$\rangle$ and $\langle$Field2$\rangle$ where $\langle$Field$\rangle$ is simply zero or more $\langle$Field2$\rangle$ Tokens.
+
+The last place where left-recursion is still a problem is in $\langle$Exp$\rangle$ but this part of the grammar also needs to be changed to handle operator precedence and associativity. To solve the operator precedence issue I split $\langle$Exp$\rangle$ for binary operators into multiple $\langle$ExpN$\rangle$ where every $\langle$ExpN$\rangle$ has the next expression at the left side. Since the parser is a recursive descent parser it means that the parser will go into the left branch first which has the result that expressions deeper in the ``ladder'' have a higher priority. Building this laddered structure conveniently also solves the left-recursion issue.
+
+The expression at the right side is for the other side of the operator. This structure has the result that every binary operator is right associative. However, some binary operators are left associative (such as subtraction). This is the reason why for some operators we collect multiple right sides. Imagine the expression \texttt{5 - 4 - 3 - 2 1}. When this reaches the parser for $\langle$Exp5$\rangle$ the result will be \texttt{Lit(Int(5))} for the left side and \texttt{[(TokenMinus, Lit(Int(4))), (TokenMinus, Lit(Int(3))), (TokenMinus, Lit(Int(2))), (TokenMinus, Lit(Int(1)))]} for the right side. Since the right side is a list of expressions we can do a right fold which will result in a single expression that is left associative. This also works in cases where the right side has higher precedence (because that will be done first) and where the right side is right associative.
+
+Using the grammar described the recursive descent parser is fully functional. Error reporting during parsing is a little tricky. \texttt{Combine} returns the Token where a parsing error occurs and since the location of a Token is stored during scanning the compiler can report the error and in what context it happens. However, if combine successfully parses a part of the Token stream it does not result in an error. This has changed in \texttt{Combine 3.0} but that is not stable at this point in time. So it may happen that part of the program compiles fine but a function is in reality actually missing because it had an error somewhere. When it does report an error it looks as follows (missing opening \texttt{(}):
+\begin{lstlisting}[language=Rust, style=boxed]
+Parser error at line 1. Unexpected token TokenComma:
+[(Int, (Bool, Char))] x = 1, (True, 'a')) : [];
+\end{lstlisting}
+
+\subsubsection*{Parser Grammar:}
+\begin{grammar}
+	<SPL> = <Decl>+
+
+	<Decl> = <VarDecl> \\| <FunDecl>
+
+	<VarDecl> = ('\textbf{var}' | <Type>) <id> '=' <Exp> ';'
+
+	<FunDecl> = <id> '(' [ <FArgs> ] ')' [ '::' <FunType> ] '\{' <VarDecl>* <Stmt>+ '\}'
+
+	<RetType> = <Type> \\| '\textbf{Void}'
+
+	<FunType> = [ <FTypes> ] '$\rightarrow$' <RetType>
+
+	<FTypes> = <Type> [ <FTypes> ]
+
+	<Type> = '\textbf{Int}' \\| '\textbf{Bool}' \\| '\textbf{Char}' \\| '(' <Type> ',' <Type> ')' \\| '[' <Type> ']' \\| <id>
+
+	<FArgs> = <id> [ <FArgs> ',' ]
+
+	<Stmt> = '\textbf{if}' '(' <Exp> ')' '\{' <Stmt>* '\}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
+
+	<Exp> = <Exp2> [ '||' <Exp> ]
+
+	<Exp2> = <Exp3> [ '\&\&' <Exp2> ]
+
+	<Exp3> = <Exp4> [ ( '==' | '\textless' | '\textgreater' | '\textless=' | '\textgreater=' | '!=' ) <Exp3> ]
+
+	<Exp4> = <Exp5> ( ( '+' | '-' ) <Exp5> )*
+
+	<Exp5> = <Exp6> ( ( '*' | '/' ) <Exp6> )*
+
+	<Exp6> = <Exp7> ( [ '\%' <Exp7> ] )*
+
+	<Exp7> = <Exp8> [ ':' <Exp7> ]
+
+	<Exp8> = <id> <Field> \\| <Op1> <Exp> \\| <int> \\| <char> \\| '\textbf{False}' \\| '\textbf{True}' \\| '(' <Exp> ')' \\| <FunCall> \\| '[]' \\| '(' <Exp> ',' <Exp> ')'
+
+	<Field> = <Field2>*
+
+	<Field2> = '.' '\textbf{hd}' | '.' '\textbf{tl}' | '.' '\textbf{fst}' | '.' '\textbf{snd}'
+
+	<FunCall> = <id> '(' [ <ActArgs> ] ')'
+
+	<ActArgs> = <Exp> [ ',' <ActArgs> ]
+
+	<Op1> = '!' | '-'
+
+	<int> = [ '-' ] digit+
+
+	<char> = ' alpha '
+
+	<id> = alpha ( '\_' | alphaNum)*
+\end{grammar}
+
+\subsection{Pretty-printer}
+Implementing the pretty printer is fairly straightforward. After parsing the result is an Abstract Syntax Tree. In order to format this nicely I implement the \texttt{Display} trait for every enum/struct in the AST. Implementing the \texttt{Display} trait involves implementing its associated \texttt{fmt} function which described how the data structure should be printed/displayed. So for something simple as the \texttt{Type} enum the implementation looks as follows:
+\begin{lstlisting}[language=Rust, style=boxed]
+impl fmt::Display for Type {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}", match *self {
+			Type::TInt => String::from("Int"),
+			Type::TBool => String::from("Bool"),
+			Type::TChar => String::from("Char"),
+			Type::TVoid => String::from("Void"),
+			Type::TTuple(ref l, ref r) =>
+				format!("({}, {})", l, r),
+			Type::TList(ref t) => format!("[{}]", t),
+			Type::TArrow(ref ftypes, ref rtype) =>
+				format!("{}-> {}",
+				ftypes.iter().map(|x| format!("{} ", x))
+				.collect::<Vec<String>>().concat(), rtype)
+		})
+	}
+}
+\end{lstlisting}
+For the basic types it simply prints the keyword whereas for composed types it prints the structure around the composed types and then pretty prints the composed types. The result is a nicely printed type.
+
+The most difficult part is managing indentation and ensuring that there are no excessive brackets/braces. Thus for pretty printing the operators which are left associative and the precedence of operators are stored somewhere rather than only describing them through the grammar. The most difficult part is when operators are chained. Currently this is implemented by checking the left and right side of a binary operator and seeing which side has a higher precedence and what the associativity of each side is. The result is a pretty-printer that does indenting and puts braces whenever necessary.
 
 \section{Semantic Analysis}
 % Doing monomorphic type checking
@@ -126,6 +214,7 @@
 % var keyword removed
 % FunType can no longer be optional
 % no identifier allowed in Type
+% TODO: UPDATE!!
 \begin{grammar}
 <SPL> = <Decl>+
 
@@ -194,4 +283,144 @@
 % mention the existence of RuntimeErr
 
 % == looks at whether the values are the same instead of only the pointers
+
+% mention evaluation order (of function calls / operators)
+% exp1 || exp2 always does both in my code generator!
+
+\clearpage
+\appendix
+\section{Scanner Tokens}
+\label{Appendix1}
+\begin{lstlisting}[language=Rust, style=boxed]
+pub enum Token {
+	TokenIdentifier(String),
+	TokenInt(i64),
+	TokenBool(bool),
+	TokenChar(char),
+	TokenComment(String),
+	TokenVar,
+	TokenVoid,
+	TokenIntKeyword,
+	TokenBoolKeyword,
+	TokenCharKeyword,
+	TokenIf,
+	TokenElse,
+	TokenWhile,
+	TokenReturn,
+	TokenArrow,
+	TokenDoubleColon,
+	TokenDoubleEquals,
+	TokenLtEquals,
+	TokenGtEquals,
+	TokenNotEquals,
+	TokenDoubleAmp,
+	TokenDoublePipe,
+	TokenEquals,
+	TokenParenOpen,
+	TokenParenClose,
+	TokenBracketOpen,
+	TokenBracketClose,
+	TokenBraceOpen,
+	TokenBraceClose,
+	TokenColon,
+	TokenSemiColon,
+	TokenComma,
+	TokenDot,
+	TokenPlus,
+	TokenMinus,
+	TokenMult,
+	TokenDiv,
+	TokenMod,
+	TokenLt,
+	TokenGt,
+	TokenNot
+}
+\end{lstlisting}
+\section{Final Abstract Syntax Tree}
+\label{Appendix2}
+\begin{lstlisting}[language=Rust, style=boxed]
+pub type Ident = String;
+
+pub struct SPL {
+	pub vars: Vec<Variable>,
+	pub funs: Vec<Function>
+}
+
+pub struct Variable {
+	pub name: Ident,
+	pub vtype: Type,
+	pub value: Expression
+}
+
+pub struct Function {
+	pub name: Ident,
+	pub args: Vec<Ident>,
+	pub ftype: Type,
+	pub vars: Vec<Variable>,
+	pub stmts: Vec<Statement>
+}
+
+pub enum Type {
+	TInt,
+	TBool,
+	TChar,
+	TVoid,
+	TTuple(Box<Type>, Box<Type>),
+	TList(Box<Type>),
+	TArrow(Vec<Type>, Box<Type>)
+}
+
+pub enum Statement {
+	If(Expression, Vec<Statement>, Vec<Statement>),
+	While(Expression, Vec<Statement>),
+	Assignment(Ident, Vec<Field>, Expression),
+	FunCall(Expression),
+	Return(Option<Expression>)
+}
+
+pub enum Expression {
+	Ident(Ident, Vec<Field>),
+	Op2(Box<Expression>, Op2, Box<Expression>),
+	Op1(Op1, Box<Expression>),
+	Lit(Literal),
+	FunCall(Ident, Vec<Expression>),
+	Tuple(Box<Expression>, Box<Expression>)
+}
+
+pub enum Field {
+	Head,
+	Tail,
+	First,
+	Second
+}
+
+pub enum Op2 {
+	Addition,
+	Subtraction,
+	Multiplication,
+	Division,
+	Modulo,
+	Equals,
+	LessThan,
+	GreaterThan,
+	LessEquals,
+	GreaterEquals,
+	NotEquals,
+	And,
+	Or,
+	Cons
+}
+
+pub enum Op1 {
+	Not,
+	Negation
+}
+
+pub enum Literal {
+	Int(i64),
+	Char(char),
+	Bool(bool),
+	EmptyList
+}
+\end{lstlisting}
 \end{document}

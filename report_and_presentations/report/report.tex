@@ -209,70 +209,95 @@ For the basic types it simply prints the keyword whereas for composed types it p
 The most difficult part is managing indentation and ensuring that there are no excessive brackets/braces. Thus for pretty printing the operators which are left associative and the precedence of operators are stored somewhere rather than only describing them through the grammar. The most difficult part is when operators are chained. Currently this is implemented by checking the left and right side of a binary operator and seeing which side has a higher precedence and what the associativity of each side is. The result is a pretty-printer that does indenting and puts braces whenever necessary.
 
 \section{Semantic Analysis}
-% Doing monomorphic type checking
-% Grammar parsed when starting semantic analysis
-% var keyword removed
-% FunType can no longer be optional
-% no identifier allowed in Type
-% TODO: UPDATE!!
+Smenatic Analysis consists of binding time analysis and type checking/inference. For type checking/inference I decided to start with monomorphic type checking and potentially extend to polymorphic type checking if time allowed me to. Unfortunately this did not end up happening and I stuck with monomorphic type checking with exceptions for print and isEmpty in order to make the language somewhat useful. The flipside is that monomorphic type checking works very well.
+
+In order to only support monomorphic type checking the grammar had to be changed somewhat. For variable declarations the \texttt{var} keyword is no longer present, function types are no longer optional, and identifiers are removed from the $\langle$Type$\rangle$ construct. This also resulted in minor changes to the AST as some of the \texttt{Type} enums no longer have to be wrapped in \texttt{Option} since they must always exist. Additionally \texttt{TIdent(String)} was removed from the \texttt{Type} enum. The updated grammar can be found below while the final AST can be found in Appendix~\ref{Appendix2}.
+
+For binding time analysis my compiler makes use of a type environment. This type environment stores the names of functions and variables and their corresponding type. Whenever a variable is shadowed by a newer variable declaration it is replaced in the type environment. As a result an identifier only has to be checked for existence in the type environment to determine whether it is in scope or not. The type stored is used to make sure the type of the identifier fits in the context it is used in. A bit of extra care has to be taken whenever a variable is shadowed since one function shadowing a variable should not affect another function not shadowing this variable.
+
+The type checker has a specific order in which it works. It first scans all the function headers and checks if they are correct (correct amount of parameters with the specified types). If they are correct they are entered into the type environment. This can be done without information on anything else and which is why it occurs first.
+
+After that all global variables are checked. A global variable is checked by making sure the specified type at the left side matches the type the right side returns. This has to be done after entering functions into the type environment since expressions at the right side might have function calls which have to be checked.
+
+Checking expressions is fairly easy. If an identifier expression is found it simply checks if the identifier is in the type environment and returns the type. If a binary operator expression is found we simply check if the types of the left and right sides are expected for that binary operator (thus handling overloading). A function call expression is checked by checking all arguments of the function call and seeing if the resulting types of those match the types of the function call. Such procedures are implemented for every expression which has the result that every expression results in a type which can then be used later. One thing that should be noted is that the type of every expression is also separately stored in a \texttt{HashMap} where the key is a pointer to the expression. This is very useful when generating code later.
+
+After checking global variables and entering them into the type environment we can finally check the function bodies as function bodies may rely on global variable declarations. The first thing that is done is that variables are shadowed in the type environment. Variable shadowing does not result in any warning whatsoever as I consider it a normal part of every programming language. After the variable shadowing, and thus checking the variable declarations, the statement are checked.
+
+The easy statements to check are variable assignments, function calls, and return statements. For variable assignments the compiler simply checks if the left side has the same type as the right side. For function calls the same procedure as expressions is taking (in fact the code simply calls the function that analysis expressions). Checking return statements simply involves checking if the type of the expression in the return statement is the same as the return type of the function with some special handling when the return has no expression.
+
+The difficult statements to check are the if/else and while statements. They are difficult because the compiler must ensure that all code paths must result in a return at some point. The procedure to check if/else statements works as follows: The expression within the if is checked to see if it returns a type Bool. Then the contents of the if and else branch are separately checked. Additionally to only checking every branch, the compiler also records if the branch results in a guaranteed return or not. If and only if both branches guarantee a return then the whole if/else statement guarantees a return. This even works when if/else statements are nested. By doing it this way the compiler can know at the end of a function whether there was a guaranteed return beforehand or not. If there wasn't then the compiler will complain that not all paths have a return value. The exception to this is a return with no expression as the function has a return of type Void in that case. Unfortunately this guaranteeing can not be used for while statements. The following code would say that there was a guaranteed return unless the compiler evaluates the expression within the while but that is not possible in all cases. Thus for while statements the compiler simply treats them as never returning.
+\begin{lstlisting}[language=Rust, style=boxed]
+while(False) {
+	return;
+}
+\end{lstlisting}
+
+After checking the statements in the function bodies type checking is done. If no error occurred anywhere the SPL program is considered correct, otherwise it outputs the error and why it occurs. Two example errors would be:
+\begin{lstlisting}[language=Rust, style=boxed]
+Global variable type mismatch in:
+(Int, Bool) y = x.tl;
+Given type '(Int, Bool)', found type '[(Int, Bool)]'.
+
+Return statement 'return;' has type 'Void' while function
+expects type 'Int'.
+\end{lstlisting}
+
+Something to note about error handling in general. Every stage of the compiler increasingly works on data that is further from the original source code making it harder to have good error messages. In the scanner it is still working directly on the source string. In the parser it is working on Tokens which I annotated with positions for error reporting. During semantic analysis it works on the AST which has no relation to the original source code anymore. To get somewhat around this the pretty-printer is used to print the context.
+
+\subsubsection*{Semantic Analysis Grammar:}
 \begin{grammar}
-<SPL> = <Decl>+
+	<SPL> = <Decl>+
 
-<Decl> = <VarDecl> \\| <FunDecl>
+	<Decl> = <VarDecl> \\| <FunDecl>
 
-<VarDecl> = <Type> <id> '=' <Exp> ';'
+	<VarDecl> = <Type> <id> '=' <Exp> ';'
 
-<FunDecl> = <id> '(' [ <FArgs> ] ')' '::' <FunType> '\{' <VarDecl>* <Stmt>+ '\}'
+	<FunDecl> = <id> '(' [ <FArgs> ] ')' '::' <FunType> '\{' <VarDecl>* <Stmt>+ '\}'
 
-<RetType> = <Type> \\| '\textbf{Void}'
+	<RetType> = <Type> \\| '\textbf{Void}'
 
-<FunType> = [ <FTypes> ] '$\rightarrow$' <RetType>
+	<FunType> = [ <FTypes> ] '$\rightarrow$' <RetType>
 
-<FTypes> = <Type> [ <FTypes> ]
+	<FTypes> = <Type> [ <FTypes> ]
 
-<Type> = '\textbf{Int}' \\| '\textbf{Bool}' \\| '\textbf{Char}' \\| '(' <Type> ',' <Type> ')' \\| '[' <Type> ']'
+	<Type> = '\textbf{Int}' \\| '\textbf{Bool}' \\| '\textbf{Char}' \\| '(' <Type> ',' <Type> ')' \\| '[' <Type> ']'
 
-<FArgs> = <id> [ <FArgs> ',' ]
+	<FArgs> = <id> [ <FArgs> ',' ]
 
-<Stmt> = '\textbf{if}' '(' <Exp> ')' '\{' <Stmt>* '\}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
+	<Stmt> = '\textbf{if}' '(' <Exp> ')' '\{' <Stmt>* '\}' [ '\textbf{else}' '\{' <Stmt>* '\}' ] \\| '\textbf{while}' '(' <Exp> ')' '\{' <Stmt>* '\}' \\| <id> <Field> '=' <Exp> ';' \\| <FunCall> ';' \\| '\textbf{return}' [ <Exp> ] ';'
 
-<Exp> = <Exp2> [ '||' <Exp> ]
+	<Exp> = <Exp2> [ '||' <Exp> ]
 
-<Exp2> = <Exp3> [ '\&\&' <Exp2> ]
+	<Exp2> = <Exp3> [ '\&\&' <Exp2> ]
 
-<Exp3> = <Exp4> [ ':' <Exp3> ]
+	<Exp3> = <Exp4> [ ( '==' | '\textless' | '\textgreater' | '\textless=' | '\textgreater=' | '!=' ) <Exp3> ]
 
-<Exp4> = <Exp5> [ ( '==' | '\textless' | '\textgreater' | '\textless=' | '\textgreater=' | '!=' ) <Exp4> ]
+	<Exp4> = <Exp5> ( ( '+' | '-' ) <Exp5> )*
 
-<Exp5> = <Exp6> [ ( '+' | '-' ) <Exp5> ]
+	<Exp5> = <Exp6> ( ( '*' | '/' ) <Exp6> )*
 
-<Exp6> = <Exp7> [ ( '*' | '/' ) <Exp6> ]
+	<Exp6> = <Exp7> ( [ '\%' <Exp7> ] )*
 
-<Exp7> = <Exp8> [ '\%' <Exp7> ]
+	<Exp7> = <Exp8> [ ':' <Exp7> ]
 
-<Exp8> = <id> <Field> \\| <Op1> <Exp> \\| <int> \\| <char> \\| '\textbf{False}' \\| '\textbf{True}' \\| '(' <Exp> ')' \\| <FunCall> \\| '[]' \\| '(' <Exp> ',' <Exp> ')'
+	<Exp8> = <id> <Field> \\| <Op1> <Exp> \\| <int> \\| <char> \\| '\textbf{False}' \\| '\textbf{True}' \\| '(' <Exp> ')' \\| <FunCall> \\| '[]' \\| '(' <Exp> ',' <Exp> ')'
 
-<Field> = <Field2>*
+	<Field> = <Field2>*
 
-<Field2> = '.' '\textbf{hd}' | '.' '\textbf{tl}' | '.' '\textbf{fst}' | '.' '\textbf{snd}'
+	<Field2> = '.' '\textbf{hd}' | '.' '\textbf{tl}' | '.' '\textbf{fst}' | '.' '\textbf{snd}'
 
-<FunCall> = <id> '(' [ <ActArgs> ] ')'
+	<FunCall> = <id> '(' [ <ActArgs> ] ')'
 
-<ActArgs> = <Exp> [ ',' <ActArgs> ]
+	<ActArgs> = <Exp> [ ',' <ActArgs> ]
 
-<Op1> = '!' | '-'
+	<Op1> = '!' | '-'
 
-<int> = [ '-' ] digit+
+	<int> = [ '-' ] digit+
 
-<char> = ' alpha '
+	<char> = ' alpha '
 
-<id> = alpha ( '\_' | alphaNum)*
+	<id> = alpha ( '\_' | alphaNum)*
 \end{grammar}
-
-% first we collect all function declarations and check those (num args matches etc.) and enter them into the type environment
-% then we check all global variables. We can do this now since we know the function declarations.
-% then we check all functions. We can do this since we know all global variables.
-% functions and variables go into the same type environment but we use a bool to track whether it is a function or a variable.
 
 \section{Code Generation}
 % This might be unexpected due to the linked lists

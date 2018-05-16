@@ -320,14 +320,18 @@ fn generate_print(expr_type: &Type) -> String {
 
 			let random_label = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
 			let random_label2 = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+			let random_label3 = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+
+			// Make the number absolute and print "-" if it was negative since this method of printing only works for positive numbers.
+			gen_code.push_str(&format!("lds 0\nldc 0\nlt\nbrf {}\nldc 0\nswp\nsub\nldc 45\ntrap 1\n{}:\n", random_label, random_label));
 
 			// Assembly code that divides the number by 10 continuously until there is no more remainder.
 			// It puts n digits on the stack to be printed. The amount of digits is stored in R7.
 			gen_code.push_str(&format!("str R6\nldc 0\nstr R7\n{}:\nldr R6\nldc 10\nmod\nldc 48\nadd\nldr R7\n\
-				ldc 1\nadd\nstr R7\nldr R6\nldc 10\ndiv\nstr R6\najs 1\nldc 0\neq\nbrf {}\n", random_label, random_label));
+				ldc 1\nadd\nstr R7\nldr R6\nldc 10\ndiv\nstr R6\najs 1\nldc 0\neq\nbrf {}\n", random_label2, random_label2));
 
 			// Print n digits from the stack. The amount of digits is stored in R7.
-			gen_code.push_str(&format!("{}:\ntrap 1\nldr R7\nldc 1\nsub\nstr R7\najs 1\nldc 0\neq\nbrf {}\n", random_label2, random_label2));
+			gen_code.push_str(&format!("{}:\ntrap 1\nldr R7\nldc 1\nsub\nstr R7\najs 1\nldc 0\neq\nbrf {}\n", random_label3, random_label3));
 		},
 		Type::TBool => {
 			let random_label = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();

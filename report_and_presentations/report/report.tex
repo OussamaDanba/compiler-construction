@@ -22,6 +22,8 @@ In this report I will describe my SPL compiler written in the programming langua
 
 The report is divided in the sections: Scanning and Parsing, Semantic Analysis, Code Generation, and Compiler Extension. This is done to reflect the course set-up.
 
+This report is accompanied with tests for the compiler. What each test is supposed to test can be found inside the test.
+
 \section{Scanning and Parsing}
 The first thing to note here is that the scanner (also known as lexer) and parser are two separate entities. My primary reason for doing this is that it allows the parser to abstract from all whitespace since it is handled by the scanner. This would simplify the parser to only deal with the actual contents of the source code. Additionally it allowed me to work on the scanner before the lecture on parsers had occurred.
 
@@ -244,6 +246,8 @@ expects type 'Int'.
 
 Something to note about error handling in general. Every stage of the compiler increasingly works on data that is further from the original source code making it harder to have good error messages. In the scanner it is still working directly on the source string. In the parser it is working on Tokens which I annotated with positions for error reporting. During semantic analysis it works on the AST which has no relation to the original source code anymore. To get somewhat around this the pretty-printer is used to print the context.
 
+Briefly mentioned before was the exception to make print and isEmpty polymorphic. As a result print always passes the type checker and isEmpty only passes the type checker as long as a list of some type is given. Since the type of the expressions that are printed is known the code generator can generate code to accommodate this.
+
 \subsubsection*{Semantic Analysis Grammar:}
 \begin{grammar}
 	<SPL> = <Decl>+
@@ -300,17 +304,56 @@ Something to note about error handling in general. Every stage of the compiler i
 \end{grammar}
 
 \section{Code Generation}
-% This might be unexpected due to the linked lists
-% [Int] q = 5 : [];
-% [Int] x = 1 : 2 : q;
-% q.hd = 0;
+Before I started working on the code generation I first planned how I wanted the memory layout to look like. Before describing the code generator I will describe how the memory is organized as the code generator uses some assumptions that can be done with this specific memory layout.
 
-% mention the existence of RuntimeErr
+One of the core insights is that every expression results in a single value. This might be a plain value for basic types such as Int, Bool, and Char or it might be a pointer for types such as Tuples and Lists. I made use of this fact when I decided the memory layout.
 
-% == looks at whether the values are the same instead of only the pointers
+The first thing is to decide where to put global variables. These can either be on the stack, on the heap or re-evaluate the expression whenever used. The third option I only mention for the sake of completeness as it would result in weird interactions when global variables are changed (or the global values they depend on are changed). I decided to put them on the stack mainly for the reasons that the amount of global variables is static and that they never go out of scope. Putting them on the stack felt somewhat more permanent than putting them on the heap. So, when the compiler starts it first stores the start of the stack in register R5. Since the code segment is variable the start of the stack needs to be stored somewhere. The reason for storing it in a register is convenience as the compiler can grab it at any time if needed. There is no performance difference as the Simple Stack Machine does not actually put them in registers. So the top of the stack looks like $n$ values where every value is the result of an expression belonging to a global variable.
 
-% mention evaluation order (of function calls / operators)
-% exp1 || exp2 always does both in my code generator!
+After the globals the stack frames follow (starting with the stack frame of main). A stack frame starts with $n$ parameters which are the parameters passed by the previous function. These are in reverse order to make addressing relative to the markpointer easier. After the parameters there is the return address. The return address is followed by a word of memory that holds the value of the previous markpointer. The current markpointer point to this word of memory. Then there are $n$ words for the local values. Then there is some scratch space to do computations on (mainly for statements). As mentioned before the calling function is responsible for putting the parameters on the stack. The function that is being called creates the rest of the stack and is also responsible for cleaning up the stack; including the parameters for this function. Having the called function clean up the parameters is not a necessity (the calling function could also have done so) but since it is cleaning up its own stack frame anyway it might as well clean up the parameters as well as they are no longer needed. This has the benefit that after a function call the stack is back to where it started before the function call.
+
+As stated before tuples are stored on the heap. The reason for this is that nested tuples will be a nightmare if they are stored on the stack. The memory layout of tuples is as follows: On the stack there is a pointer to the first element of the tuple which is in the heap. The second element of the tuple is adjacent to the first element on the heap. Thus having a pointer to the first element guarantees being able to find the second element. In SPL tuples are guaranteed to have a size of two which makes this a little easier. The elements on the heap are either the plain value or a pointer to some other place. This allows nested tuples and lists inside tuples. Since type information is known at compile-time the compiler knows whether a plain value or pointer is expected and can generate code accordingly.
+
+Lists are similar to tuples in that they are stored on the heap. For lists I decided to implement them as linked lists instead of having one continuous region of memory dedicated to lists. The main reasoning for this is that it avoids having to copy the entire list whenever adding an element to it. Additionally, I was expecting that to be more tricky than implementing them as linked lists. A pointer to a list (which is on the stack) is thus a pointer to the head of the list. The word adjacent to it is a pointer to the head of the tail of the list. This structure allows infinite length lists (as long as heap size permits naturally). To encode the end of a list the pointer to the tail is 0x0. The address 0x0 is guaranteed to be within the code section so this always works. This has the added benefit that this representation can also be used to represent the empty list since every list has the empty list at the end. Using 0x0 as the pointer is thus a marker for the empty list. Whenever the compiler deals with lists it first has to check the pointer whether it is 0x0 or not.
+
+Consider the following piece of SPL code:
+\begin{lstlisting}[language=Rust, style=boxed]
+[Int] q = 5 : [];
+[Int] x = 1 : 2 : q;
+q.hd = 0;
+\end{lstlisting}
+Since lists are implemented as linked lists this changes \texttt{q} but also \texttt{x}. This is something that should be documented (which I'm doing here). I do not consider this wrong behavior but simply a semantic choice. If this is not desired then a user can write his own function to do a deep copy of a list before adding elements to it.
+
+Now that the memory layout is clear I started implementing code generation. The natural place to start was with expressions as the idea was that they return a single value. For literal expressions this is fairly easy, the compiler simply does a \texttt{ldc} and then the value. For the \texttt{EmptyList} literal it generated two words of 0x0 and stores them on the heap. After that I implemented identifier expressions. These are somewhat tricky as the compiler needs to know from what part of the memory it needs to load them from. They can come from the globals and must thus loaded relative to R5 or they can come from the parameters/locals and must thus be loaded relative to the markpointer. An additional difficulty is that SPL allows users to ask for the head or tail of an identifier. What if a user asks the head of an empty list? The compiler can not always determine this at compile-time thus the compiler must generate code that handles this case at runtime. In my compiler whenever a runtime error occurs it jumps to the RuntimeErr function which simply halts after showing the top value of the stack. This function is overridable by the user if they want some primitive error handling.
+
+Now that the expression building blocks are in place it is rather easy to implement the rest. Take tuples for example, it generates code for each expression and since each expression results in a single value we simply store the two values on the heap. Implementing binary operators works in a similar way. Simply generate code for both sides and do something with the produced values. There is one exception and that is implementing \texttt{==} and \texttt{!=}. Since equality can be used on lists the compiler needs to generate code that can compare two lists of dynamic length. If lists were not implemented as linked lists this would have been significantly easier.
+
+An important thing to mention is the evaluation order. Since function calls put the parameters in reverse order on the stack I decided to evaluate function calls from right to left rather than from left to right and swapping the values. Additionally, operators such as \texttt{||} and \texttt{\&\&} typically have a short-circuit depending on the value of the left side. My compiler does not have this short-circuit. It always evaluates both sides. This was a deliberate choice as I feel in a language that can have side-effects (modifying a global for example) the right-side must get the chance to do it's side-effect. Code that relies on the right-side implicitly not executing is in my opinion poor behavior.
+
+Once expressions are implemented global variables can be implemented by simply generating the code for all the expressions. The values are put on the stack when they are computed so no extra care is required.
+
+After that functions are implemented but without the function body. This allowed me to see whether program flow was working as expected. The code for functions without bodies simply involves creating a label, reserving space for the locals, storing the return value in RR, and cleaning up the stack.
+
+Local variables are very similar to global variables. Simply generate the code that evaluates them and then generate the instruction that stores the top of the stack relative to the markpointer (\texttt{stl}).
+
+Generating code for statements is relatively simple when generating code for expressions is done. The \texttt{FunCall} statement simply generates the same code as the expression but ignores the return value. The \texttt{Return} statement generates the same code as when a function ends but stores the return value in register RR if a value is to be returned. Assignments are a little more tricky as the compiler now needs to write to the place of an identifier rather than copy it to the stack. Luckily the SSM helps with this since it provides the \texttt{ldla} instruction which loads the address instead of the value. The same error handling as before is done if a user creates a runtime error.
+
+Generating the if/else and while statements is not very difficult as they're very normal patterns in assembly like languages. For the if statement simply evaluate the expression and branch if this is False. If it does not branch then we have the code for the statements within the if branch. If it does branch then we have the code for the statements in the else branch. There's a label at the end to make sure the if branch does not also execute the else branch. The while statement is similar except that the expression is evaluated multiple times since it is a loop.
+
+More interesting is the implementation of isEmpty and print as they are polymorphic functions. Implementing isEmpty is fairly easy as the type checker ensures only lists are passed. So isEmpty simply dereference the pointer once and checks if the second word points to 0x0. If it does then it is an empty list, otherwise it isn't.
+
+Implementing print was more tricky. My idea was to implement printing for basic types and then compose print for tuples/lists out of those. Since the types are known at compile-time this is doable. Printing Char and Bool. For Char a simply \texttt{trap 1} is sufficient. For Bool it translates to a simple if/else where in one branch it prints the text True and in the other branch the text False. Printing Int is unfortunately harder. SSM has a \texttt{trap 0} to print integers; except this can not be used since it adds a newline at the end. Thus I had to implement printing integers myself which is difficult as they have a variable length.
+
+The generated code work as follows: Do modulo 10 to get the remainder. This remainder is put on the stack for printing later. Then divide the original number by 10 to get the non-remainder part. If this is not 0 then we loop back. In the meantime I use register R7 to store how many characters from the stack have to be displayed. If it is 0 then the code simply does \texttt{trap 1} for the amount that is in R7. Simple example: 1234 mod 10 -\textgreater{ }4 on stack. 123 $\neq$ 0. 123 mod 10 -\textgreater{ }3 on stack. 12 $\neq$ 0. 12 mod 10 -\textgreater{ }2 on stack. 1 $\neq$ 0. 1 mod 10 -\textgreater{ }1 on stack. 0 = 0. Now \texttt{trap 1} executes 4 times which ends up printing 1234 without a newline at the end. Unfortunately this does not work for negative numbers so there is some extra assembly that makes the number absolute and prints a negative sign if it was negative.
+
+Implementing print for tuples and lists is easy once the basic types are done. They simply print the symbols around the elements and generate the code to print the elements. This works because at compile time we know the type inside the tuples/lists so what code to generate to print the elements is known at compile time. This does mean that print is not a true function but inline assembly (which is fine). An example output of print is the following:
+\begin{lstlisting}[language=Rust, style=boxed]
+(1, (True, a)) : (-21, (True, a)) : (2, (False, z)) : []
+\end{lstlisting}
+
+With that the code generator is complete. It works fine but doesn't generate the best code but that wasn't really the goal. Choosing to implement lists as linked lists proved to be harder and it doesn't really result in much benefit. In terms of memory it uses more since every element now needs two words rather than every element needing one word and some fixed small overhead. In terms of performance it's not faster either except when doing frequent list manipulation.
+
+\section{PLACEHOLDER FOR COMPILER EXTENSION}
 
 \clearpage
 \appendix

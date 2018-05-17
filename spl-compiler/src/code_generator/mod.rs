@@ -170,7 +170,7 @@ fn generate_statements(stmt: &Statement, fun: &Function, global_vars: &[(Ident, 
 						acc
 					},
 					Field::Tail => {
-						acc.push_str("lda 0\nlds 0\nldh -1\nlds 0\nldc 0\neq\nbrt RuntimeErr\najs -1\n");
+						acc.push_str("lda 0\nlds 0\nldh -1\nlds 0\nldc 0\neq\nbrt RuntimeErr\najs -1\nldc 1\nsub\n");
 						acc
 					}
 				}

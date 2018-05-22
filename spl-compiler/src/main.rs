@@ -9,7 +9,8 @@ use std::io::prelude::*;
 mod scanner;
 mod parser;
 mod semantic_analysis;
-mod code_generator;
+mod code_generator_ssm;
+mod code_generator_c;
 
 fn main() {
 	// Read in specified file into a String. We don't want to panic here so we use exit.
@@ -78,7 +79,7 @@ fn main() {
 		return;
 	}
 
-	let generated_code = code_generator::code_generator(&spl, &sem_result.unwrap());
+	let generated_code_ssm = code_generator_ssm::code_generator(&spl, sem_result.as_ref().unwrap());
 
 	let mut output_filename = filename.to_owned();
 	output_filename.push_str(".ssm");
@@ -90,9 +91,29 @@ fn main() {
 		Ok(file) => file,
 	};
 
-	match file.write_all(generated_code.as_bytes()) {
+	match file.write_all(generated_code_ssm.as_bytes()) {
 		Err(_) => {
 			println!("Could not write to ssm file.");
+			::std::process::exit(1)
+		},
+		Ok(_) => println!("Code was generated into {}", output_filename)
+	}
+
+	let generated_code_c = code_generator_c::code_generator(&spl, sem_result.as_ref().unwrap());
+
+	let mut output_filename = filename.to_owned();
+	output_filename.push_str(".c");
+	let mut file = match File::create(&output_filename) {
+		Err(_) => {
+			println!("Could not create c file.");
+			::std::process::exit(1)
+		},
+		Ok(file) => file,
+	};
+
+	match file.write_all(generated_code_c.as_bytes()) {
+		Err(_) => {
+			println!("Could not write to c file.");
 			::std::process::exit(1)
 		},
 		Ok(_) => println!("Code was generated into {}", output_filename)

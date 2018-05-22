@@ -10,7 +10,7 @@
 \setlength{\grammarparsep}{0cm}
 
 \title{SPL compiler in Rust report}
-\author{Oussama Danba}
+\author{Oussama Danba --- s4435591\\Cyber Security specialization}
 \date{\today}
 
 \begin{document}
@@ -22,7 +22,18 @@ In this report I will describe my SPL compiler written in the programming langua
 
 The report is divided in the sections: Scanning and Parsing, Semantic Analysis, Code Generation, and Compiler Extension. This is done to reflect the course set-up.
 
-This report is accompanied with tests for the compiler. What each test is supposed to test can be found inside the test.
+This report is accompanied with some basic tests for the compiler. What each test is supposed to test can be found inside the test.
+
+\section{Rust and Statistics}
+Before the course began I knew we were allowed to use any language we preferred and that we would cover recursive descent parsing. I briefly considered using a functional programming language (either Clean or Haskell) but decided against it as I do not consider myself comfortable enough in those languages. I frequently struggle with coming up with an alternative solution in those languages if my initial solution does not work. As such, I wanted something more imperative. Out of the more imperative languages my favorite language for a while has been Rust. It is a low-level programming language with no runtime system (no garbage collector or JIT) and is able to provide guarantees that code is safe at compile-time (no buffer overflows, no memory corruption, data-race free, \dots). The compiler provides really useful error messages, the package manager is incredibly useful, and the language has a lot of functional aspects (higher order functions, lazy evaluation, nested functions, pattern matching, \dots). I've been working with Rust for a while now but haven't had the chance to do a larger project yet. Writing the compiler in Rust seemed to be an ideal project.
+
+Now for some statistics about the compiler. The scanner is about 200 lines of code and took slightly more than a work day to make (about 10 hours). The parser is about 400 lines of code and took about three days to complete (with another day for fixing some minor bugs and making the pretty-printer) so I would estimate that at 28 hours. Semantic analysis is about the same size at around 400 lines of code. That took about two full days of work (10-11 hours a day; I tend to prefer to work in bulk) and another slower day for a total of about 25 hours. The code generator is larger than the previous ones with about 500 lines of code. It also ended up taking most of the time with three days of actual work and another day spent thinking about the structure of everything. I would estimate that at 30 hours.
+
+% extension still to be done
+
+Besides working on the compiler there is also time spent changing older things (I've changed the operator precedence half a dozen of times), thinking about the assignment, making presentations, and making this report. All in all I do think I spent about 6 EC of time into this course which I found surprising as I'm working alone.
+
+% still 6 EC?
 
 \section{Scanning and Parsing}
 The first thing to note here is that the scanner (also known as lexer) and parser are two separate entities. My primary reason for doing this is that it allows the parser to abstract from all whitespace since it is handled by the scanner. This would simplify the parser to only deal with the actual contents of the source code. Additionally it allowed me to work on the scanner before the lecture on parsers had occurred.
@@ -210,8 +221,9 @@ For the basic types it simply prints the keyword whereas for composed types it p
 
 The most difficult part is managing indentation and ensuring that there are no excessive brackets/braces. Thus for pretty printing the operators which are left associative and the precedence of operators are stored somewhere rather than only describing them through the grammar. The most difficult part is when operators are chained. Currently this is implemented by checking the left and right side of a binary operator and seeing which side has a higher precedence and what the associativity of each side is. The result is a pretty-printer that does indenting and puts braces whenever necessary.
 
+% typing / scoping rules?
 \section{Semantic Analysis}
-Smenatic Analysis consists of binding time analysis and type checking/inference. For type checking/inference I decided to start with monomorphic type checking and potentially extend to polymorphic type checking if time allowed me to. Unfortunately this did not end up happening and I stuck with monomorphic type checking with exceptions for print and isEmpty in order to make the language somewhat useful. The flipside is that monomorphic type checking works very well.
+Smenatic Analysis consists of binding time analysis and type checking/inference. For type checking/inference I decided to start with monomorphic type checking and potentially extend to polymorphic type checking if time allowed me to. Unfortunately this did not end up happening and I stuck with monomorphic type checking with the exception of isEmpty in order to make the language somewhat useful. The type checking does not apply for print as it is supposed to be overloaded for every type. Leaving out polymorphic type checking did allow me to implement monomorphic type checking well.
 
 In order to only support monomorphic type checking the grammar had to be changed somewhat. For variable declarations the \texttt{var} keyword is no longer present, function types are no longer optional, and identifiers are removed from the $\langle$Type$\rangle$ construct. This also resulted in minor changes to the AST as some of the \texttt{Type} enums no longer have to be wrapped in \texttt{Option} since they must always exist. Additionally \texttt{TIdent(String)} was removed from the \texttt{Type} enum. The updated grammar can be found below while the final AST can be found in Appendix~\ref{Appendix2}.
 
@@ -340,20 +352,24 @@ Generating code for statements is relatively simple when generating code for exp
 
 Generating the if/else and while statements is not very difficult as they're very normal patterns in assembly like languages. For the if statement simply evaluate the expression and branch if this is False. If it does not branch then we have the code for the statements within the if branch. If it does branch then we have the code for the statements in the else branch. There's a label at the end to make sure the if branch does not also execute the else branch. The while statement is similar except that the expression is evaluated multiple times since it is a loop.
 
-More interesting is the implementation of isEmpty and print as they are polymorphic functions. Implementing isEmpty is fairly easy as the type checker ensures only lists are passed. So isEmpty simply dereference the pointer once and checks if the second word points to 0x0. If it does then it is an empty list, otherwise it isn't.
+More interesting is the implementation of isEmpty and print as one of them is polymorphic while the other one is overloaded. Implementing isEmpty is fairly easy as the type checker ensures only lists are passed. So isEmpty simply dereference the pointer once and checks if the second word points to 0x0. If it does then it is an empty list, otherwise it isn't.
 
-Implementing print was more tricky. My idea was to implement printing for basic types and then compose print for tuples/lists out of those. Since the types are known at compile-time this is doable. Printing Char and Bool. For Char a simply \texttt{trap 1} is sufficient. For Bool it translates to a simple if/else where in one branch it prints the text True and in the other branch the text False. Printing Int is unfortunately harder. SSM has a \texttt{trap 0} to print integers; except this can not be used since it adds a newline at the end. Thus I had to implement printing integers myself which is difficult as they have a variable length.
+Implementing print was more tricky. My idea was to implement printing for basic types and then compose print for tuples/lists out of those. Since the types are known at compile-time this is doable. Printing Char and Bool is trivial. For Char a simple \texttt{trap 1} is sufficient. For Bool it translates to a simple if/else where in one branch it prints the text True and in the other branch the text False. Printing Int is unfortunately harder. SSM has a \texttt{trap 0} to print integers; except this can not be used since it adds a newline at the end. Thus I had to implement printing integers myself which is difficult as they have a variable length.
 
-The generated code work as follows: Do modulo 10 to get the remainder. This remainder is put on the stack for printing later. Then divide the original number by 10 to get the non-remainder part. If this is not 0 then we loop back. In the meantime I use register R7 to store how many characters from the stack have to be displayed. If it is 0 then the code simply does \texttt{trap 1} for the amount that is in R7. Simple example: 1234 mod 10 -\textgreater{ }4 on stack. 123 $\neq$ 0. 123 mod 10 -\textgreater{ }3 on stack. 12 $\neq$ 0. 12 mod 10 -\textgreater{ }2 on stack. 1 $\neq$ 0. 1 mod 10 -\textgreater{ }1 on stack. 0 = 0. Now \texttt{trap 1} executes 4 times which ends up printing 1234 without a newline at the end. Unfortunately this does not work for negative numbers so there is some extra assembly that makes the number absolute and prints a negative sign if it was negative.
+The generated code work as follows: Do modulo 10 to get the remainder. This remainder is put on the stack for printing later. Then divide the original number by 10 to get the non-remainder part. If this is not 0 then we loop back. In the meantime I use register R7 to store how many characters from the stack have to be displayed. If it is 0 then the code simply uses R7 to determine how of \texttt{trap 1} is executed (thus printing the number character by character). Simple example: 1234 mod 10 results in 4 on the stack. 123 $\neq$ 0. 123 mod 10 results in 3 on the stack. 12 $\neq$ 0. 12 mod 10 results in 2 on the stack. 1 $\neq$ 0. 1 mod 10 results in 1 on the stack. 0 = 0. Now \texttt{trap 1} executes 4 times which ends up printing 1234 without a newline at the end. Unfortunately this does not work for negative numbers so there is some extra assembly that makes the number absolute and prints a negative sign if it was negative.
 
-Implementing print for tuples and lists is easy once the basic types are done. They simply print the symbols around the elements and generate the code to print the elements. This works because at compile time we know the type inside the tuples/lists so what code to generate to print the elements is known at compile time. This does mean that print is not a true function but inline assembly (which is fine). An example output of print is the following:
+Implementing print for tuples and lists is easy once the basic types are done. They simply print the symbols around the elements and generate the code to print the elements. This works because at compile time we know the type inside the tuples/lists so what code to generate to print the elements is known at compile time. This does mean that print is not a true function but inline assembly for each overloaded variant. An example output of print is the following:
 \begin{lstlisting}[language=Rust, style=boxed]
 (1, (True, a)) : (-21, (True, a)) : (2, (False, z)) : []
 \end{lstlisting}
 
 With that the code generator is complete. It works fine but doesn't generate the best code but that wasn't really the goal. Choosing to implement lists as linked lists proved to be harder and it doesn't really result in much benefit. In terms of memory it uses more since every element now needs two words rather than every element needing one word and some fixed small overhead. In terms of performance it's not faster either except when doing frequent list manipulation.
 
-\section{PLACEHOLDER FOR COMPILER EXTENSION}
+\section{Generating C code}
+For the compiler extension I wanted to be able to use SPL functions from other languages as SPL itself is somewhat limited in functionality. In order to accomplish this SPL needs to compile to real machine code rather than SSM. To me, the most straightforward way to accomplish this was to compile to C code. Compiling SPL to C code allows a C compiler to generate the real machine code. The resulting object file can then be statically linked with other programs allowing SPL functions to be used. Compiling to C code has multiple advantages. It uses the C calling convention making more easily compatible with other languages, it makes SPL somewhat cross-platform, and it produces optimized code.
+
+% describe challenges and how solved
+% how does the implementation look
 
 \clearpage
 \appendix

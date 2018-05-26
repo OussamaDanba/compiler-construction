@@ -30,7 +30,7 @@ fn generate_globals(vars: &[Variable], expr_type: &HashMap<*const Expression, Ty
 fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &HashMap<*const Expression, Type>) -> String {
 	let mut gen_code = String::new();
 	for fun in &ast.funs {
-		// print and isEmpty require special handling as they are polymorphic
+		// print and isEmpty require special handling
 		if fun.name != "print" && fun.name != "isEmpty" {
 			let (fun_args, fun_res) = match fun.ftype {
 				Type::TArrow(ref args, ref res) => (args, res),

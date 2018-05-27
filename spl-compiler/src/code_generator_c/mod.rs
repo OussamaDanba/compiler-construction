@@ -104,8 +104,6 @@ fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &Hash
 		}
 	}
 
-	// TODO: implement print
-
 	gen_code
 }
 
@@ -201,7 +199,17 @@ fn generate_statements(stmt: &Statement, fun: &Function, global_vars: &[(Ident, 
 				// Get rid of the trailing comma
 				arguments.pop();
 
-				gen_code.push_str(&format!("{}({});\n", ident, arguments));
+				// print is generated inline as it is overloaded
+				if ident == "print" {
+					// print is guaranteed to only have one expression and has return type Void
+					let expr_type = expr_type.get(&(&exprs[0] as *const Expression)).unwrap();
+					gen_code.push_str(&generate_print(&arguments, expr_type));
+
+					// Add a newline at the end
+					gen_code.push_str("printf(\"\\n\");\n");
+				} else {
+					gen_code.push_str(&format!("{}({});\n", ident, arguments));
+				}
 			}
 		},
 		Statement::Return(ref option_expr) => match *option_expr {
@@ -430,6 +438,41 @@ fn generate_op2(name: &str, lexpr: &Expression, op2: &Op2, rexpr: &Expression,
 			gen_code.push_str(&format!("{}->tl = (uintptr_t) {}", name, random_label2));
 		}
 	}
+}
+
+fn generate_print(var_name: &str, expr_type: &Type) -> String {
+	let mut gen_code = String::new();
+	match *expr_type {
+		Type::TInt => {
+			gen_code.push_str(&format!("printf(\"%i\", {});\n", var_name));
+		},
+		Type::TBool => {
+			gen_code.push_str(&format!("if({}) {{\nprintf(\"True\");\n}} else {{\nprintf(\"False\");\n}}\n", var_name));
+		},
+		Type::TChar => {
+			gen_code.push_str(&format!("printf(\"%c\", {});\n", var_name));
+		},
+		Type::TTuple(ref l, ref r) => {
+			gen_code.push_str("printf(\"(\");\n");
+			gen_code.push_str(&generate_print(&format!("(({}) {}->fst)", generate_type_name(l), var_name), l));
+			gen_code.push_str("printf(\", \");\n");
+			gen_code.push_str(&generate_print(&format!("(({}) {}->snd)", generate_type_name(r), var_name), r));
+			gen_code.push_str("printf(\")\");\n");
+		},
+		Type::TList(ref inner) => {
+			gen_code.push_str(&format!("while(!isEmpty({})) {{\n{}{}{}}}\n",
+				var_name,
+				generate_print(&format!("(({}) {}->hd)", generate_type_name(inner), var_name), inner),
+				"printf(\" : \");\n",
+				format!("{} = (list*) {}->tl;\n", var_name, var_name))
+			);
+			gen_code.push_str("printf(\"[]\");\n");
+		},
+		Type::TVoid => (),
+		_ => unreachable!()
+	}
+
+	gen_code
 }
 
 // Given the name of an identifier in the AST it will result in the actual name and the type of the variable.

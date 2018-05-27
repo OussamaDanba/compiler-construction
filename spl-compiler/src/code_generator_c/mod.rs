@@ -63,10 +63,45 @@ fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &Hash
 	for fun in &ast.funs {
 		// print and isEmpty require special handling
 		if fun.name != "print" && fun.name != "isEmpty" {
-			// TODO: completely
-			// TODO: rename main to spl_main
+			if let Type::TArrow(ref fun_args_types, ref fun_res_type) = fun.ftype {
+
+				// Generate code for parameters and enter them into the environment
+				let mut param_vars: Vec<(Ident, Type)> = Vec::new();
+				let mut arguments = String::new();
+				for (arg_ident, arg_type) in fun.args.iter().zip(fun_args_types) {
+					param_vars.push((arg_ident.clone(), arg_type.clone()));
+					arguments.push_str(&format!("{} {},", generate_type_name(arg_type), arg_ident));
+				}
+				arguments.pop();
+
+				// Generate function header. main is renamed to spl_main as the C main is reserved for globals.
+				if fun.name == "main" {
+					gen_code.push_str(&format!("{} {}({}) {{\n", generate_type_name(fun_res_type), "spl_main", arguments));
+				} else {
+					gen_code.push_str(&format!("{} {}({}) {{\n", generate_type_name(fun_res_type), fun.name, arguments));
+				}
+
+				let mut local_vars: Vec<(Ident, Type, Ident)> = Vec::new();
+				for var in &fun.vars {
+					// Make a random mapping for the variable and enter it into the type environment
+					let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
+					local_vars.push((var.name.clone(), var.vtype.clone(), random_label.clone()));
+
+					gen_code.push_str(&format!("{} {} = {};\n",
+						generate_type_name(&var.vtype),
+						random_label,
+						generate_expression(&var.name, &var.value, global_vars, &param_vars, &local_vars, expr_type)));
+				}
+
+				// TODO: function body
+
+				gen_code.push_str("}\n");
+			}
+
 		}
 	}
+
+	// TODO: implement print
 
 	gen_code
 }
@@ -78,7 +113,7 @@ fn generate_type_name(type_name: &Type) -> String {
 		Type::TChar => String::from("char"),
 		Type::TTuple(ref left, ref right) => String::from("tuple*"),
 		Type::TList(ref inner) => String::from("list*"),
-		Type::TVoid => unreachable!(),
+		Type::TVoid => String::from("void"),
 		Type::TArrow(_, _) => unreachable!()
 	}
 }
@@ -263,7 +298,7 @@ fn generate_op2(name: &Ident, lexpr: &Expression, op2: &Op2, rexpr: &Expression,
 		},
 		Op2::NotEquals => {
 			generate_op2(name, lexpr, &Op2::Equals, rexpr, gen_code, global_vars, param_vars, local_vars, expr_type);
-			gen_code.push_str(&format!("\n{} = !{}", name, name));
+			gen_code.push_str(&format!(";\n{} = !{}", name, name));
 		},
 		Op2::Cons => {
 			gen_code.push_str(&format!("{} = malloc(sizeof(list));\n", name));

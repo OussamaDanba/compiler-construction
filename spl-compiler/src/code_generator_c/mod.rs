@@ -138,8 +138,10 @@ fn generate_expression(name: &Ident, expr: &Expression, global_vars: &[(Ident, T
 			gen_code.push_str(&generate_ident(String::new(), actual_ident, ident_type, fields));
 		},
 		Expression::Op2(ref lexpr, ref op2, ref rexpr) => {
-			// Don't forget about brackets here!
-			unimplemented!()
+			// Need this because the arguments have to be evaluated first before being passed as parameters.
+			gen_code.push_str("0;\n");
+
+			generate_op2(name, lexpr, op2, rexpr, &mut gen_code, global_vars, param_vars, local_vars, expr_type);
 		},
 		Expression::Op1(ref op, ref expr) => {
 			match *op {
@@ -171,11 +173,11 @@ fn generate_expression(name: &Ident, expr: &Expression, global_vars: &[(Ident, T
 			// Evaluate the arguments and construct the string that is passed
 			let mut arguments = String::new();
 			for expr in exprs {
-				let random_label = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+				let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
 				gen_code.push_str(&format!("{} {} = {};\n",
 					generate_type_name(expr_type.get(&(&(*expr) as *const Expression)).unwrap()),
 					random_label,
-					generate_expression(&random_label, &expr, &global_vars, &Vec::new(), &Vec::new(), expr_type))
+					generate_expression(&random_label, &expr, global_vars, param_vars, local_vars, expr_type))
 				);
 
 				arguments.push_str(&format!("{},", random_label));
@@ -188,26 +190,87 @@ fn generate_expression(name: &Ident, expr: &Expression, global_vars: &[(Ident, T
 		Expression::Tuple(ref left, ref right) => {
 			gen_code.push_str("malloc(sizeof(tuple));\n");
 			// Left side
-			let random_label = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+			let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
 			gen_code.push_str(&format!("{} {} = {};\n",
 				generate_type_name(expr_type.get(&(&(**left) as *const Expression)).unwrap()),
 				random_label,
-				generate_expression(&random_label, &left, &global_vars, &Vec::new(), &Vec::new(), expr_type))
+				generate_expression(&random_label, &left, global_vars, param_vars, local_vars, expr_type))
 			);
 			gen_code.push_str(&format!("{}->fst = (uintptr_t) {};\n", name, random_label));
 
 			// Right side
-			let random_label2 = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+			let mut random_label2 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label2.insert(0, '_');
 			gen_code.push_str(&format!("{} {} = {};\n",
 				generate_type_name(expr_type.get(&(&(**right) as *const Expression)).unwrap()),
 				random_label2,
-				generate_expression(&random_label2, &right, &global_vars, &Vec::new(), &Vec::new(), expr_type))
+				generate_expression(&random_label2, &right, &global_vars, param_vars, local_vars, expr_type))
 			);
 			gen_code.push_str(&format!("{}->snd = (uintptr_t) {}", name, random_label2));
 		}
 	}
 
 	gen_code
+}
+
+fn generate_op2(name: &Ident, lexpr: &Expression, op2: &Op2, rexpr: &Expression,
+	gen_code: &mut String, global_vars: &[(Ident, Type)], param_vars: &[(Ident, Type)], local_vars: &[(Ident, Type, Ident)],
+	expr_type: &HashMap<*const Expression, Type>) {
+
+	// Evaluate the left expression
+	let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
+	gen_code.push_str(&format!("{} {} = {};\n",
+		generate_type_name(expr_type.get(&(lexpr as *const Expression)).unwrap()),
+		random_label,
+		generate_expression(&random_label, lexpr, global_vars, param_vars, local_vars, expr_type))
+	);
+
+	// Evaluate the right expression
+	let mut random_label2 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label2.insert(0, '_');
+	gen_code.push_str(&format!("{} {} = {};\n",
+		generate_type_name(expr_type.get(&(rexpr as *const Expression)).unwrap()),
+		random_label2,
+		generate_expression(&random_label2, rexpr, global_vars, param_vars, local_vars, expr_type))
+	);
+
+	match *op2 {
+		// These operators are only defined for when the left and right side are values rather than pointers
+		Op2::Addition => gen_code.push_str(&format!("{} = {} + {}", name, random_label, random_label2)),
+		Op2::Subtraction => gen_code.push_str(&format!("{} = {} - {}", name, random_label, random_label2)),
+		Op2::Multiplication => gen_code.push_str(&format!("{} = {} * {}", name, random_label, random_label2)),
+		Op2::Division => gen_code.push_str(&format!("{} = {} / {}", name, random_label, random_label2)),
+		Op2::Modulo => gen_code.push_str(&format!("{} = {} % {}", name, random_label, random_label2)),
+		Op2::LessThan => gen_code.push_str(&format!("{} = {} < {}", name, random_label, random_label2)),
+		Op2::GreaterThan => gen_code.push_str(&format!("{} = {} > {}", name, random_label, random_label2)),
+		Op2::LessEquals => gen_code.push_str(&format!("{} = {} <= {}", name, random_label, random_label2)),
+		Op2::GreaterEquals => gen_code.push_str(&format!("{} = {} >= {}", name, random_label, random_label2)),
+		// Since left and right are evaluated separately the short-circuiting here is not a problem
+		Op2::And => gen_code.push_str(&format!("{} = {} && {}", name, random_label, random_label2)),
+		Op2::Or => gen_code.push_str(&format!("{} = {} || {}", name, random_label, random_label2)),
+		Op2::Equals => {
+			match expr_type.get(&(lexpr as *const Expression)).unwrap() {
+				| Type::TInt
+				| Type::TBool
+				| Type::TChar => gen_code.push_str(&format!("{} = {} == {}", name, random_label, random_label2)),
+				// TODO: Actual equality instead of only the references
+				Type::TTuple(ref l, ref r) => {
+					gen_code.push_str(&format!("{} = {} == {}", name, random_label, random_label2));
+				},
+				Type::TList(ref inner) => {
+					gen_code.push_str(&format!("{} = {} == {}", name, random_label, random_label2));
+				},
+				_ => unreachable!()
+			}
+		},
+		Op2::NotEquals => {
+			generate_op2(name, lexpr, &Op2::Equals, rexpr, gen_code, global_vars, param_vars, local_vars, expr_type);
+			gen_code.push_str(&format!("\n{} = !{}", name, name));
+		},
+		Op2::Cons => {
+			gen_code.push_str(&format!("{} = malloc(sizeof(list));\n", name));
+			gen_code.push_str(&format!("{}->hd = (uintptr_t) {};\n", name, random_label));
+			gen_code.push_str(&format!("{}->tl = (uintptr_t) {}", name, random_label2));
+		}
+	}
 }
 
 // Given the name of an identifier in the AST it will result in the actual name and the type of the variable.

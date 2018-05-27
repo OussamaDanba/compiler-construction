@@ -236,7 +236,7 @@ fn generate_type_name(type_name: &Type) -> String {
 	}
 }
 
-fn generate_ident(with_err: bool, gen_code: String, ident: &Ident, ident_type: &Type, fields: &[Field]) -> String {
+fn generate_ident(with_err: bool, gen_code: String, ident: &str, ident_type: &Type, fields: &[Field]) -> String {
 	if gen_code.is_empty() {
 		generate_ident(with_err, format!("({}) {}", generate_type_name(ident_type), ident), ident, ident_type, fields)
 	} else if fields.is_empty() {
@@ -287,7 +287,7 @@ fn generate_ident(with_err: bool, gen_code: String, ident: &Ident, ident_type: &
 	}
 }
 
-fn generate_expression(name: &Ident, expr: &Expression, global_vars: &[(Ident, Type)], param_vars: &[(Ident, Type)],
+fn generate_expression(name: &str, expr: &Expression, global_vars: &[(Ident, Type)], param_vars: &[(Ident, Type)],
 	local_vars: &[(Ident, Type, Ident)], expr_type: &HashMap<*const Expression, Type>) -> String {
 
 	let mut gen_code = String::new();
@@ -318,7 +318,7 @@ fn generate_expression(name: &Ident, expr: &Expression, global_vars: &[(Ident, T
 		},
 		Expression::Lit(ref x) => match *x {
 			Literal::Int(ref val) => gen_code.push_str(&format!("{}", *val)),
-			Literal::Bool(ref val) => gen_code.push_str(&format!("{}", if *val { "true" } else { "false" })),
+			Literal::Bool(ref val) => gen_code.push_str(if *val { "true" } else { "false" }),
 			Literal::Char(ref val) => gen_code.push_str(&format!("'{}'", *val)),
 			Literal::EmptyList => {
 				gen_code.push_str("malloc(sizeof(list));\n");
@@ -371,7 +371,7 @@ fn generate_expression(name: &Ident, expr: &Expression, global_vars: &[(Ident, T
 	gen_code
 }
 
-fn generate_op2(name: &Ident, lexpr: &Expression, op2: &Op2, rexpr: &Expression,
+fn generate_op2(name: &str, lexpr: &Expression, op2: &Op2, rexpr: &Expression,
 	gen_code: &mut String, global_vars: &[(Ident, Type)], param_vars: &[(Ident, Type)], local_vars: &[(Ident, Type, Ident)],
 	expr_type: &HashMap<*const Expression, Type>) {
 

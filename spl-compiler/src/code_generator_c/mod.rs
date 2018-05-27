@@ -165,7 +165,25 @@ fn generate_expression(name: &Ident, expr: &Expression, global_vars: &[(Ident, T
 			},
 		},
 		Expression::FunCall(ref ident, ref exprs) => {
-			unimplemented!()
+			// Need this because the arguments have to be evaluated first before being passed as parameters.
+			gen_code.push_str("0;\n");
+
+			// Evaluate the arguments and construct the string that is passed
+			let mut arguments = String::new();
+			for expr in exprs {
+				let random_label = rand::thread_rng().gen_ascii_chars().take(10).collect::<String>();
+				gen_code.push_str(&format!("{} {} = {};\n",
+					generate_type_name(expr_type.get(&(&(*expr) as *const Expression)).unwrap()),
+					random_label,
+					generate_expression(&random_label, &expr, &global_vars, &Vec::new(), &Vec::new(), expr_type))
+				);
+
+				arguments.push_str(&format!("{},", random_label));
+			}
+			// Get rid of the trailing comma
+			arguments.pop();
+
+			gen_code.push_str(&format!("{} = {}({})", name, ident, arguments));
 		},
 		Expression::Tuple(ref left, ref right) => {
 			gen_code.push_str("malloc(sizeof(tuple));\n");

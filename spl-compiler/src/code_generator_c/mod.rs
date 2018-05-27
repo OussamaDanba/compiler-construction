@@ -8,13 +8,13 @@ pub fn code_generator(ast: &SPL, expr_type: &HashMap<*const Expression, Type>) -
 	let tuple = String::from("typedef struct {\n\tuintptr_t fst;\n\tuintptr_t snd;\n} tuple;\n");
 	let list = String::from("typedef struct {\n\tuintptr_t hd;\n\tuintptr_t tl;\n} list;\n");
 
-	let (global_vars, global_decls) = generate_globals_decls(&ast.vars, expr_type);
+	let (global_vars, global_decls) = generate_globals_decls(&ast.vars);
 
-	format!("{}\n{}\n{}\n{}\n{}\n{}\n", includes, tuple, list, global_decls,
+	format!("{}\n{}\n{}\n{}{}{}\n", includes, tuple, list, global_decls,
 		generate_functions(ast, &global_vars, expr_type), generate_globals_inits(&ast.vars, &global_vars, expr_type))
 }
 
-fn generate_globals_decls(vars: &[Variable], expr_type: &HashMap<*const Expression, Type>) -> (Vec<(Ident, Type)>, String) {
+fn generate_globals_decls(vars: &[Variable]) -> (Vec<(Ident, Type)>, String) {
 	// We need to store all the global variables we have somewhere so that we can find them later when evaluating expressions
 	let mut global_vars = Vec::new();
 	for var in vars {
@@ -36,7 +36,7 @@ fn generate_globals_inits(vars: &[Variable], global_vars: &[(Ident, Type)],
 
 	let mut gen_code = String::new();
 	// Global variables initialization
-	gen_code.push_str("\nint main() {\n");
+	gen_code.push_str("int main() {\n");
 	for var in vars {
 		gen_code.push_str(&format!("{} = {};\n",
 			var.name,
@@ -52,12 +52,12 @@ fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &Hash
 
 	// isEmpty only has a list as argument and no locals and returns a bool
 	// isEmpty is easy to implement since we only have to check whether the second pointer points to 0x0 or not
-	gen_code.push_str("bool isEmpty(uintptr_t x) {\n\treturn ((list*) x)->tl == 0;\n}\n\n");
+	gen_code.push_str("bool isEmpty(list* x) {\n\treturn x->tl == 0;\n}\n\n");
 
 	// We have a default RuntimeErr function which handles runtime errors. A user can define this himself if they
 	// wanted to.
 	if ast.funs.iter().find(|x| x.name == "RuntimeErr").is_none() {
-		gen_code.push_str("int RuntimeErr() {\n\texit(-1);\n}\n");
+		gen_code.push_str("int RuntimeErr() {\n\texit(-1);\n}\n\n");
 	}
 
 	for fun in &ast.funs {
@@ -90,12 +90,15 @@ fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &Hash
 					gen_code.push_str(&format!("{} {} = {};\n",
 						generate_type_name(&var.vtype),
 						random_label,
-						generate_expression(&var.name, &var.value, global_vars, &param_vars, &local_vars, expr_type)));
+						generate_expression(&random_label, &var.value, global_vars, &param_vars, &local_vars, expr_type)));
 				}
 
-				// TODO: function body
+				for stmt in &fun.stmts {
+					let statement_code = generate_statements(stmt, fun, global_vars, &param_vars, &local_vars, expr_type);
+					gen_code.push_str(&statement_code);
+				}
 
-				gen_code.push_str("}\n");
+				gen_code.push_str("}\n\n");
 			}
 
 		}
@@ -106,21 +109,136 @@ fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &Hash
 	gen_code
 }
 
+fn generate_statements(stmt: &Statement, fun: &Function, global_vars: &[(Ident, Type)], param_vars: &[(Ident, Type)],
+	local_vars: &[(Ident, Type, Ident)], expr_type: &HashMap<*const Expression, Type>) -> String {
+
+	let mut gen_code = String::new();
+	match *stmt {
+		Statement::If(ref expr, ref if_stmts, ref else_stmts) => {
+			// Evaluate the expression
+			let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
+			gen_code.push_str(&format!("{} {} = {};\n",
+				generate_type_name(expr_type.get(&(&(*expr) as *const Expression)).unwrap()),
+				random_label,
+				generate_expression(&random_label, &expr, global_vars, param_vars, local_vars, expr_type))
+			);
+
+			gen_code.push_str(&format!("if({}) {{\n", random_label));
+			// Generate if-statements
+			for if_stmt in if_stmts {
+				gen_code.push_str(&generate_statements(if_stmt, fun, global_vars, param_vars, local_vars, expr_type));
+			}
+			gen_code.push_str("} else {\n");
+
+			// Generate else-statements
+			for else_stmt in else_stmts {
+				gen_code.push_str(&generate_statements(else_stmt, fun, global_vars, param_vars, local_vars, expr_type));
+			}
+			gen_code.push_str("}\n");
+		},
+		Statement::While(ref expr, ref stmts) => {
+			// Evaluate the expression once
+			let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
+			gen_code.push_str(&format!("{} {} = {};\n",
+				generate_type_name(expr_type.get(&(&(*expr) as *const Expression)).unwrap()),
+				random_label,
+				generate_expression(&random_label, &expr, global_vars, param_vars, local_vars, expr_type))
+			);
+
+			gen_code.push_str(&format!("while({}) {{\n", random_label));
+			// Generate while-statements
+			for stmt in stmts {
+				gen_code.push_str(&generate_statements(stmt, fun, global_vars, param_vars, local_vars, expr_type));
+			}
+
+			// Re-evaluate the expression so that we possibly loop
+			gen_code.push_str(&format!("{} = {};\n",
+				random_label,
+				generate_expression(&random_label, &expr, global_vars, param_vars, local_vars, expr_type))
+			);
+			gen_code.push_str("}\n");
+		},
+		Statement::Assignment(ref ident, ref fields, ref expr) => {
+			// Evaluate the expression
+			let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
+			gen_code.push_str(&format!("{} {} = {};\n",
+				generate_type_name(expr_type.get(&(&(*expr) as *const Expression)).unwrap()),
+				random_label,
+				generate_expression(&random_label, &expr, global_vars, param_vars, local_vars, expr_type))
+			);
+
+			let mut random_label2 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label2.insert(0, '_');
+			let (actual_ident, ident_type) = find_identifier(ident, global_vars, param_vars, local_vars);
+
+			// This solely exists for error checking purposes
+			gen_code.push_str(&format!("uintptr_t {} = (uintptr_t) {};\n",
+				random_label2,
+				generate_ident(true, String::new(), actual_ident, ident_type, fields)
+			));
+
+			gen_code.push_str(&format!("{} = (uintptr_t) {};\n",
+				generate_ident(false, String::new(), actual_ident, ident_type, fields).split_whitespace().skip(1).collect::<String>()
+			, random_label));
+		},
+		Statement::FunCall(ref expr) => {
+			// A little bit of code duplication since every expression sets a variable at the end.
+			// This is the only time where it is a problem since a function call can result in a void which
+			// we can not assign to a variable. This is not a problem in expression since the type checker
+			// ensures that void functions are not used in expressions.
+			if let Expression::FunCall(ref ident, ref exprs) = expr{
+				// Evaluate the arguments and construct the string that is passed
+				let mut arguments = String::new();
+				for expr in exprs {
+					let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
+					gen_code.push_str(&format!("{} {} = {};\n",
+						generate_type_name(expr_type.get(&(&(*expr) as *const Expression)).unwrap()),
+						random_label,
+						generate_expression(&random_label, &expr, global_vars, param_vars, local_vars, expr_type))
+					);
+
+					arguments.push_str(&format!("{},", random_label));
+				}
+				// Get rid of the trailing comma
+				arguments.pop();
+
+				gen_code.push_str(&format!("{}({});\n", ident, arguments));
+			}
+		},
+		Statement::Return(ref option_expr) => match *option_expr {
+			Some(ref expr) => {
+				if let Type::TArrow(_, ref fun_ret_type) = fun.ftype {
+					let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
+					gen_code.push_str(&format!("{} {} = {};\n",
+						generate_type_name(fun_ret_type),
+						random_label,
+						generate_expression(&random_label, expr, global_vars, param_vars, local_vars, expr_type))
+					);
+
+					gen_code.push_str(&format!("return {};\n", random_label));
+				}
+			},
+			None => gen_code.push_str("return;\n")
+		}
+	}
+
+	gen_code
+}
+
 fn generate_type_name(type_name: &Type) -> String {
 	match *type_name {
 		Type::TInt => String::from("int"),
 		Type::TBool => String::from("bool"),
 		Type::TChar => String::from("char"),
-		Type::TTuple(ref left, ref right) => String::from("tuple*"),
-		Type::TList(ref inner) => String::from("list*"),
+		Type::TTuple(_, _) => String::from("tuple*"),
+		Type::TList(_) => String::from("list*"),
 		Type::TVoid => String::from("void"),
 		Type::TArrow(_, _) => unreachable!()
 	}
 }
 
-fn generate_ident(gen_code: String, ident: &Ident, ident_type: &Type, fields: &[Field]) -> String {
+fn generate_ident(with_err: bool, gen_code: String, ident: &Ident, ident_type: &Type, fields: &[Field]) -> String {
 	if gen_code.is_empty() {
-		generate_ident(format!("({}) {}", generate_type_name(ident_type), ident), ident, ident_type, fields)
+		generate_ident(with_err, format!("({}) {}", generate_type_name(ident_type), ident), ident, ident_type, fields)
 	} else if fields.is_empty() {
 		gen_code
 	} else {
@@ -130,31 +248,37 @@ fn generate_ident(gen_code: String, ident: &Ident, ident_type: &Type, fields: &[
 			// We have to do some extra work as asking for the head of an empty list doesn't make much sense.
 			Field::Head => match *ident_type {
 				Type::TList(ref ltype) => {
-					generate_ident(
-						format!("({}) (({})->tl == 0 ? RuntimeErr() : ({})->hd)",
-							generate_type_name(ltype), gen_code, gen_code),
-						ident, ident_type, next_fields)
+					generate_ident(with_err, if with_err {
+							format!("({}) (({})->tl == 0 ? RuntimeErr() : ({})->hd)",
+								generate_type_name(ltype), gen_code, gen_code)
+						} else {
+							format!("({}) ({})->hd",
+								generate_type_name(ltype), gen_code)
+						}, ident, ident_type, next_fields)
 				},
 				_ => unreachable!()
 			},
 			// It is a deliberate choice that asking for the tail of an empty list is an error.
 			Field::Tail => match *ident_type {
-				Type::TList(ref ltype) => {
-					generate_ident( format!("(list*) (({})->tl == 0 ? RuntimeErr() : ({})->tl)", gen_code, gen_code),
-						ident, ident_type, next_fields)
+				Type::TList(_) => {
+					generate_ident(with_err, if with_err {
+						format!("(list*) (({})->tl == 0 ? RuntimeErr() : ({})->tl)", gen_code, gen_code)
+					} else {
+						format!("(list*) ({})->tl", gen_code)
+					}, ident, ident_type, next_fields)
 				},
 				_ => unreachable!()
 			},
 			Field::First => match *ident_type {
 				Type::TTuple(ref fst_type, _) => {
-					generate_ident(format!("({}) ({})->fst", generate_type_name(fst_type), gen_code),
+					generate_ident(with_err, format!("({}) ({})->fst", generate_type_name(fst_type), gen_code),
 						ident, fst_type, next_fields)
 				},
 				_ => unreachable!()
 			},
 			Field::Second => match *ident_type {
 				Type::TTuple(_, ref snd_type) => {
-					generate_ident(format!("({}) ({})->snd", generate_type_name(snd_type), gen_code),
+					generate_ident(with_err, format!("({}) ({})->snd", generate_type_name(snd_type), gen_code),
 						ident, snd_type, next_fields)
 				},
 				_ => unreachable!()
@@ -170,7 +294,7 @@ fn generate_expression(name: &Ident, expr: &Expression, global_vars: &[(Ident, T
 	match *expr {
 		Expression::Ident(ref ident, ref fields) => {
 			let (actual_ident, ident_type) = find_identifier(ident, global_vars, param_vars, local_vars);
-			gen_code.push_str(&generate_ident(String::new(), actual_ident, ident_type, fields));
+			gen_code.push_str(&generate_ident(true, String::new(), actual_ident, ident_type, fields));
 		},
 		Expression::Op2(ref lexpr, ref op2, ref rexpr) => {
 			// Need this because the arguments have to be evaluated first before being passed as parameters.
@@ -181,14 +305,14 @@ fn generate_expression(name: &Ident, expr: &Expression, global_vars: &[(Ident, T
 		Expression::Op1(ref op, ref expr) => {
 			match *op {
 				Op1::Not => {
-					// The semantic analysis ensures the not operator only gets booleans. Parenthesis are placed
-					// since some expressions need them.
-					gen_code.push_str(&format!("!({})", generate_expression(name, expr, global_vars, param_vars, local_vars, expr_type)));
+					// The semantic analysis ensures the not operator only gets booleans.
+					gen_code.push_str(&generate_expression(name, &expr, global_vars, param_vars, local_vars, expr_type));
+					gen_code.push_str(&format!(";\n{} = !{}", name, name));
 				},
 				Op1::Negation => {
-					// The semantic analysis ensures the negation operator only gets integers. Parenthesis are placed
-					// since some expressions need them.
-					gen_code.push_str(&format!("-({})", generate_expression(name, expr, global_vars, param_vars, local_vars, expr_type)));
+					// The semantic analysis ensures the negation operator only gets integers.
+					gen_code.push_str(&generate_expression(name, &expr, global_vars, param_vars, local_vars, expr_type));
+					gen_code.push_str(&format!(";\n{} = -{}", name, name));
 				}
 			}
 		},
@@ -287,10 +411,10 @@ fn generate_op2(name: &Ident, lexpr: &Expression, op2: &Op2, rexpr: &Expression,
 				| Type::TBool
 				| Type::TChar => gen_code.push_str(&format!("{} = {} == {}", name, random_label, random_label2)),
 				// TODO: Actual equality instead of only the references
-				Type::TTuple(ref l, ref r) => {
+				Type::TTuple(_, _) => {
 					gen_code.push_str(&format!("{} = {} == {}", name, random_label, random_label2));
 				},
-				Type::TList(ref inner) => {
+				Type::TList(_) => {
 					gen_code.push_str(&format!("{} = {} == {}", name, random_label, random_label2));
 				},
 				_ => unreachable!()

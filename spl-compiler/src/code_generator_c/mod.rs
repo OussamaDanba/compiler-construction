@@ -84,7 +84,7 @@ fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &Hash
 				let mut local_vars: Vec<(Ident, Type, Ident)> = Vec::new();
 				for var in &fun.vars {
 					// Make a random mapping for the variable and enter it into the type environment
-					let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
+					let random_label = gen_random_label();
 					local_vars.push((var.name.clone(), var.vtype.clone(), random_label.clone()));
 
 					gen_code.push_str(&format!("{} {} = {};\n",
@@ -114,7 +114,7 @@ fn generate_statements(stmt: &Statement, fun: &Function, global_vars: &[(Ident, 
 	match *stmt {
 		Statement::If(ref expr, ref if_stmts, ref else_stmts) => {
 			// Evaluate the expression
-			let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
+			let random_label = gen_random_label();
 			gen_code.push_str(&format!("{} {} = {};\n",
 				generate_type_name(expr_type.get(&(&(*expr) as *const Expression)).unwrap()),
 				random_label,
@@ -136,7 +136,7 @@ fn generate_statements(stmt: &Statement, fun: &Function, global_vars: &[(Ident, 
 		},
 		Statement::While(ref expr, ref stmts) => {
 			// Evaluate the expression once
-			let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
+			let random_label = gen_random_label();
 			gen_code.push_str(&format!("{} {} = {};\n",
 				generate_type_name(expr_type.get(&(&(*expr) as *const Expression)).unwrap()),
 				random_label,
@@ -158,19 +158,17 @@ fn generate_statements(stmt: &Statement, fun: &Function, global_vars: &[(Ident, 
 		},
 		Statement::Assignment(ref ident, ref fields, ref expr) => {
 			// Evaluate the expression
-			let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
+			let random_label = gen_random_label();
 			gen_code.push_str(&format!("{} {} = {};\n",
 				generate_type_name(expr_type.get(&(&(*expr) as *const Expression)).unwrap()),
 				random_label,
 				generate_expression(&random_label, &expr, global_vars, param_vars, local_vars, expr_type))
 			);
 
-			let mut random_label2 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label2.insert(0, '_');
 			let (actual_ident, ident_type) = find_identifier(ident, global_vars, param_vars, local_vars);
-
 			// This solely exists for error checking purposes
 			gen_code.push_str(&format!("uintptr_t {} = (uintptr_t) {};\n",
-				random_label2,
+				gen_random_label(),
 				generate_ident(true, String::new(), actual_ident, ident_type, fields)
 			));
 
@@ -187,7 +185,7 @@ fn generate_statements(stmt: &Statement, fun: &Function, global_vars: &[(Ident, 
 				// Evaluate the arguments and construct the string that is passed
 				let mut arguments = String::new();
 				for expr in exprs {
-					let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
+					let random_label = gen_random_label();
 					gen_code.push_str(&format!("{} {} = {};\n",
 						generate_type_name(expr_type.get(&(&(*expr) as *const Expression)).unwrap()),
 						random_label,
@@ -215,7 +213,7 @@ fn generate_statements(stmt: &Statement, fun: &Function, global_vars: &[(Ident, 
 		Statement::Return(ref option_expr) => match *option_expr {
 			Some(ref expr) => {
 				if let Type::TArrow(_, ref fun_ret_type) = fun.ftype {
-					let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
+					let random_label = gen_random_label();
 					gen_code.push_str(&format!("{} {} = {};\n",
 						generate_type_name(fun_ret_type),
 						random_label,
@@ -308,9 +306,8 @@ fn generate_expression(name: &str, expr: &Expression, global_vars: &[(Ident, Typ
 			// Need this because the arguments have to be evaluated first before being passed as parameters.
 			gen_code.push_str("0;\n");
 
-			let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
-			let mut random_label2 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label2.insert(0, '_');
-			generate_op2(None, name, &random_label, &random_label2, lexpr, op2, rexpr, &mut gen_code, global_vars, param_vars, local_vars, expr_type);
+			generate_op2(None, name, &gen_random_label(), &gen_random_label(), lexpr, op2, rexpr, &mut gen_code,
+				global_vars, param_vars, local_vars, expr_type);
 		},
 		Expression::Op1(ref op, ref expr) => {
 			match *op {
@@ -342,7 +339,7 @@ fn generate_expression(name: &str, expr: &Expression, global_vars: &[(Ident, Typ
 			// Evaluate the arguments and construct the string that is passed
 			let mut arguments = String::new();
 			for expr in exprs {
-				let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
+				let random_label = gen_random_label();
 				gen_code.push_str(&format!("{} {} = {};\n",
 					generate_type_name(expr_type.get(&(&(*expr) as *const Expression)).unwrap()),
 					random_label,
@@ -359,7 +356,7 @@ fn generate_expression(name: &str, expr: &Expression, global_vars: &[(Ident, Typ
 		Expression::Tuple(ref left, ref right) => {
 			gen_code.push_str("malloc(sizeof(tuple));\n");
 			// Left side
-			let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
+			let random_label = gen_random_label();
 			gen_code.push_str(&format!("{} {} = {};\n",
 				generate_type_name(expr_type.get(&(&(**left) as *const Expression)).unwrap()),
 				random_label,
@@ -368,7 +365,7 @@ fn generate_expression(name: &str, expr: &Expression, global_vars: &[(Ident, Typ
 			gen_code.push_str(&format!("{}->fst = (uintptr_t) {};\n", name, random_label));
 
 			// Right side
-			let mut random_label2 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label2.insert(0, '_');
+			let random_label2 = gen_random_label();
 			gen_code.push_str(&format!("{} {} = {};\n",
 				generate_type_name(expr_type.get(&(&(**right) as *const Expression)).unwrap()),
 				random_label2,
@@ -427,14 +424,12 @@ fn generate_op2(type_known: Option<Type>, name: &str, lname: &str, rname: &str, 
 				| Type::TBool
 				| Type::TChar => gen_code.push_str(&format!("{} = {} == {}", name, lname, rname)),
 				Type::TTuple(ref left, ref right) => {
-					let mut random_bool = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_bool.insert(0, '_');
-					let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
-					let mut random_label2 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label2.insert(0, '_');
-					let mut random_label3 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label3.insert(0, '_');
-
-					let mut random_label4 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label4.insert(0, '_');
-					let mut random_label5 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label5.insert(0, '_');
-					let mut random_label6 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label6.insert(0, '_');
+					let random_label = gen_random_label();
+					let random_label2 = gen_random_label();
+					let random_label3 = gen_random_label();
+					let random_label4 = gen_random_label();
+					let random_label5 = gen_random_label();
+					let random_label6 = gen_random_label();
 
 					// Equality of left side
 					gen_code.push_str(&format!("{} {} = ({}) {}->fst;\n", generate_type_name(left), random_label, generate_type_name(left), lname));
@@ -451,10 +446,10 @@ fn generate_op2(type_known: Option<Type>, name: &str, lname: &str, rname: &str, 
 					gen_code.push_str(&format!(";\n{} = {} && {}", name, random_label3, random_label6));
 				},
 				Type::TList(ref inner) => {
-					let mut random_bool = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_bool.insert(0, '_');
-					let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
-					let mut random_label2 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label2.insert(0, '_');
-					let mut random_label3 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label3.insert(0, '_');
+					let random_bool = gen_random_label();
+					let random_label = gen_random_label();
+					let random_label2 = gen_random_label();
+					let random_label3 = gen_random_label();
 
 					// Special handling for empty lists
 					if let Type::TVoid = **inner {
@@ -552,4 +547,10 @@ fn find_identifier<'a>(ident: &str, global_vars: &'a [(Ident, Type)], param_vars
 	};
 
 	unreachable!()
+}
+
+fn gen_random_label() -> String {
+	let mut random = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>();
+	random.insert(0, '_');
+	random
 }

@@ -426,9 +426,29 @@ fn generate_op2(type_known: Option<Type>, name: &str, lname: &str, rname: &str, 
 				| Type::TInt
 				| Type::TBool
 				| Type::TChar => gen_code.push_str(&format!("{} = {} == {}", name, lname, rname)),
-				// TODO: Actual equality instead of only the references
-				Type::TTuple(_, _) => {
-					gen_code.push_str(&format!("{} = {} == {}", name, lname, rname));
+				Type::TTuple(ref left, ref right) => {
+					let mut random_bool = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_bool.insert(0, '_');
+					let mut random_label = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label.insert(0, '_');
+					let mut random_label2 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label2.insert(0, '_');
+					let mut random_label3 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label3.insert(0, '_');
+
+					let mut random_label4 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label4.insert(0, '_');
+					let mut random_label5 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label5.insert(0, '_');
+					let mut random_label6 = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_label6.insert(0, '_');
+
+					// Equality of left side
+					gen_code.push_str(&format!("{} {} = ({}) {}->fst;\n", generate_type_name(left), random_label, generate_type_name(left), lname));
+					gen_code.push_str(&format!("{} {} = ({}) {}->fst;\n", generate_type_name(left), random_label2, generate_type_name(left), rname));
+					gen_code.push_str(&format!("bool {} = true;\n", random_label3));
+					generate_op2(Some(*left.clone()), &random_label3, &random_label, &random_label2, lexpr, op2, rexpr, gen_code, global_vars, param_vars, local_vars, expr_type);
+
+					// Equality of right side
+					gen_code.push_str(&format!(";\n{} {} = ({}) {}->snd;\n", generate_type_name(right), random_label4, generate_type_name(right), lname));
+					gen_code.push_str(&format!("{} {} = ({}) {}->snd;\n", generate_type_name(right), random_label5, generate_type_name(right), rname));
+					gen_code.push_str(&format!("bool {} = true;\n", random_label6));
+					generate_op2(Some(*right.clone()), &random_label6, &random_label4, &random_label5, lexpr, op2, rexpr, gen_code, global_vars, param_vars, local_vars, expr_type);
+
+					gen_code.push_str(&format!(";\n{} = {} && {}", name, random_label3, random_label6));
 				},
 				Type::TList(ref inner) => {
 					let mut random_bool = rand::thread_rng().gen_ascii_chars().take(9).collect::<String>(); random_bool.insert(0, '_');

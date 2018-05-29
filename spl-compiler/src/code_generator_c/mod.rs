@@ -5,8 +5,8 @@ use rand::{self, Rng};
 pub fn code_generator(ast: &SPL, expr_type: &HashMap<*const Expression, Type>) -> String {
 	// Some standard things we almost always need so just add them.
 	let includes = String::from("#include <stdbool.h>\n#include <stdio.h>\n#include <stdint.h>\n#include <stdlib.h>\n");
-	let tuple = String::from("typedef struct {\n\tuintptr_t fst;\n\tuintptr_t snd;\n} tuple;\n");
-	let list = String::from("typedef struct {\n\tuintptr_t hd;\n\tuintptr_t tl;\n} list;\n");
+	let tuple = String::from("typedef struct {\n\tuintptr_t fst;\n\tuintptr_t snd;\n} _tuple;\n");
+	let list = String::from("typedef struct {\n\tuintptr_t hd;\n\tuintptr_t tl;\n} _list;\n");
 
 	let (global_vars, global_decls) = generate_globals_decls(&ast.vars);
 
@@ -52,7 +52,7 @@ fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &Hash
 
 	// isEmpty only has a list as argument and no locals and returns a bool
 	// isEmpty is easy to implement since we only have to check whether the second pointer points to 0x0 or not
-	gen_code.push_str("bool isEmpty(list* x) {\n\treturn x->tl == 0;\n}\n\n");
+	gen_code.push_str("bool isEmpty(_list* x) {\n\treturn x->tl == 0;\n}\n\n");
 
 	// We have a default RuntimeErr function which handles runtime errors. A user can define this himself if they
 	// wanted to.
@@ -235,8 +235,8 @@ fn generate_type_name(type_name: &Type) -> String {
 		Type::TInt => String::from("int"),
 		Type::TBool => String::from("bool"),
 		Type::TChar => String::from("char"),
-		Type::TTuple(_, _) => String::from("tuple*"),
-		Type::TList(_) => String::from("list*"),
+		Type::TTuple(_, _) => String::from("_tuple*"),
+		Type::TList(_) => String::from("_list*"),
 		Type::TVoid => String::from("void"),
 		Type::TArrow(_, _) => unreachable!()
 	}
@@ -268,9 +268,9 @@ fn generate_ident(with_err: bool, gen_code: String, ident: &str, ident_type: &Ty
 			Field::Tail => match *ident_type {
 				Type::TList(_) => {
 					generate_ident(with_err, if with_err {
-						format!("(list*) (({})->tl == 0 ? RuntimeErr() : ({})->tl)", gen_code, gen_code)
+						format!("(_list*) (({})->tl == 0 ? RuntimeErr() : ({})->tl)", gen_code, gen_code)
 					} else {
-						format!("(list*) ({})->tl", gen_code)
+						format!("(_list*) ({})->tl", gen_code)
 					}, ident, ident_type, next_fields)
 				},
 				_ => unreachable!()
@@ -328,7 +328,7 @@ fn generate_expression(name: &str, expr: &Expression, global_vars: &[(Ident, Typ
 			Literal::Bool(ref val) => gen_code.push_str(if *val { "true" } else { "false" }),
 			Literal::Char(ref val) => gen_code.push_str(&format!("'{}'", *val)),
 			Literal::EmptyList => {
-				gen_code.push_str("malloc(sizeof(list));\n");
+				gen_code.push_str("malloc(sizeof(_list));\n");
 				gen_code.push_str(&format!("{}->tl = 0", name));
 			},
 		},
@@ -354,7 +354,7 @@ fn generate_expression(name: &str, expr: &Expression, global_vars: &[(Ident, Typ
 			gen_code.push_str(&format!("{} = {}({})", name, ident, arguments));
 		},
 		Expression::Tuple(ref left, ref right) => {
-			gen_code.push_str("malloc(sizeof(tuple));\n");
+			gen_code.push_str("malloc(sizeof(_tuple));\n");
 			// Left side
 			let random_label = gen_random_label();
 			gen_code.push_str(&format!("{} {} = {};\n",
@@ -453,7 +453,7 @@ fn generate_op2(type_known: Option<Type>, name: &str, lname: &str, rname: &str, 
 
 					// Special handling for empty lists
 					if let Type::TVoid = **inner {
-						gen_code.push_str(&format!("{} = (list*) {}->tl == 0 && (list*) {}->tl == 0", name, lname, rname));
+						gen_code.push_str(&format!("{} = (_list*) {}->tl == 0 && (_list*) {}->tl == 0", name, lname, rname));
 					} else {
 						// Code that continuously checks if the heads are the same or not
 						gen_code.push_str(&format!("bool {} = true;\n", random_bool));
@@ -463,8 +463,8 @@ fn generate_op2(type_known: Option<Type>, name: &str, lname: &str, rname: &str, 
 						gen_code.push_str(&format!("bool {} = true;\n", random_label3));
 						generate_op2(Some(*inner.clone()), &random_label3, &random_label, &random_label2, lexpr, op2, rexpr, gen_code, global_vars, param_vars, local_vars, expr_type);
 						gen_code.push_str(&format!(";\n{} = {} && {};\n", random_bool, random_bool, random_label3));
-						gen_code.push_str(&format!("{} = (list*) {}->tl;\n", lname, lname));
-						gen_code.push_str(&format!("{} = (list*) {}->tl;\n", rname, rname));
+						gen_code.push_str(&format!("{} = (_list*) {}->tl;\n", lname, lname));
+						gen_code.push_str(&format!("{} = (_list*) {}->tl;\n", rname, rname));
 						gen_code.push_str("}\n");
 
 						// Code that checks if we are indeed equal or if one of them is empty
@@ -485,7 +485,7 @@ fn generate_op2(type_known: Option<Type>, name: &str, lname: &str, rname: &str, 
 			gen_code.push_str(&format!(";\n{} = !{}", name, name));
 		},
 		Op2::Cons => {
-			gen_code.push_str(&format!("{} = malloc(sizeof(list));\n", name));
+			gen_code.push_str(&format!("{} = malloc(sizeof(_list));\n", name));
 			gen_code.push_str(&format!("{}->hd = (uintptr_t) {};\n", name, lname));
 			gen_code.push_str(&format!("{}->tl = (uintptr_t) {}", name, rname));
 		}
@@ -516,7 +516,7 @@ fn generate_print(var_name: &str, expr_type: &Type) -> String {
 				var_name,
 				generate_print(&format!("(({}) {}->hd)", generate_type_name(inner), var_name), inner),
 				"printf(\" : \");\n",
-				format!("{} = (list*) {}->tl;\n", var_name, var_name))
+				format!("{} = (_list*) {}->tl;\n", var_name, var_name))
 			);
 			gen_code.push_str("printf(\"[]\");\n");
 		},

@@ -10,7 +10,7 @@ pub fn code_generator(ast: &SPL, expr_type: &HashMap<*const Expression, Type>) -
 
 	let (global_vars, global_decls) = generate_globals_decls(&ast.vars);
 
-	format!("{}\n{}\n{}\n{}{}{}\n", includes, tuple, list, global_decls,
+	format!("{}\n{}\n{}\n{}{}\n{}{}\n", includes, tuple, list, global_decls, generate_prototypes(ast),
 		generate_functions(ast, &global_vars, expr_type), generate_globals_inits(&ast.vars, &global_vars, expr_type))
 }
 
@@ -47,6 +47,32 @@ fn generate_globals_inits(vars: &[Variable], global_vars: &[(Ident, Type)],
 	gen_code
 }
 
+// In some cases function prototypes are needed (mutual function recursion for example) so generate those here
+fn generate_prototypes(ast: &SPL) -> String {
+	let mut gen_code = String::new();
+
+	for fun in &ast.funs {
+		if fun.name != "print" && fun.name != "isEmpty" {
+			if let Type::TArrow(ref fun_args_types, ref fun_res_type) = fun.ftype {
+
+				let mut arguments = String::new();
+				for arg_type in fun_args_types {
+					arguments.push_str(&format!("{},", generate_type_name(arg_type)));
+				}
+				arguments.pop();
+
+				// Generate function header. main is renamed to spl_main as the C main is reserved for globals.
+				if fun.name == "main" {
+					gen_code.push_str(&format!("{} {}({});\n", generate_type_name(fun_res_type), "spl_main", arguments));
+				} else {
+					gen_code.push_str(&format!("{} {}({});\n", generate_type_name(fun_res_type), fun.name, arguments));
+				}
+			}
+		}
+	}
+
+	gen_code
+}
 fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &HashMap<*const Expression, Type>) -> String {
 	let mut gen_code = String::new();
 

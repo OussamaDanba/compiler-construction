@@ -1,0 +1,99 @@
+ldrr R5 SP
+bsr main
+halt
+is_even:
+link 0
+ldl -2
+ldc 0
+eq
+brf gGzlbdhLjk
+ldc -1
+str RR
+unlink
+sts -1
+ajs -0
+ret
+bra avyRnYokIX
+gGzlbdhLjk:
+ldl -2
+ldc 1
+sub
+bsr is_odd
+ldr RR
+str RR
+unlink
+sts -1
+ajs -0
+ret
+avyRnYokIX:
+is_odd:
+link 0
+ldl -2
+ldc 0
+eq
+brf 9gtRaV2gL8
+ldc 0
+str RR
+unlink
+sts -1
+ajs -0
+ret
+bra eG5NNehJdQ
+9gtRaV2gL8:
+ldl -2
+ldc 1
+sub
+bsr is_even
+ldr RR
+str RR
+unlink
+sts -1
+ajs -0
+ret
+eG5NNehJdQ:
+main:
+link 0
+ldc 10
+bsr is_even
+ldr RR
+brf L4MiyhiiwJ
+ldc 101
+ldc 117
+ldc 114
+ldc 84
+trap 1
+trap 1
+trap 1
+trap 1
+bra gyjlXLnGlS
+L4MiyhiiwJ:
+ldc 101
+ldc 115
+ldc 108
+ldc 97
+ldc 70
+trap 1
+trap 1
+trap 1
+trap 1
+trap 1
+gyjlXLnGlS:
+ldc 10
+trap 1
+ldr RR
+ajs -1
+unlink
+ret
+isEmpty:
+link 0
+ldl -2
+ldh -1
+ldc 0
+eq
+str RR
+unlink
+sts -1
+ret
+RuntimeErr:
+trap 0
+halt

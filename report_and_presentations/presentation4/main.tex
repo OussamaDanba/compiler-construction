@@ -160,6 +160,7 @@
         \begin{itemize}
             \item The first thing the C code does is initialize the declared globals.
         \end{itemize}
+        \item Somewhat related is that the compiler generates C function prototypes. This is required for SPL programs that use mutual recursion.
     \end{itemize}
 \end{frame}
 
@@ -222,7 +223,7 @@
         \item SPL compiled to C can be linked to other programs and work.
         \item I'm happy with how the compiler turned out
         \begin{itemize}
-            \item Would I do it again in Rust? Absolutely.
+            \item Would I do it in Rust again? Absolutely.
         \end{itemize}
     \end{itemize}
 \end{frame}

@@ -39,11 +39,6 @@ fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &Hash
 
 			// We need to store all the parameter vars we have somewhere so that we can find them later when evaluating expressions
 			let param_vars: Vec<(Ident, Type)> = fun.args.iter().zip(fun_args).map(|(x, y)| (x.clone(), y.clone())).collect();
-			// We need to store all the local vars we have somewhere so that we can find them later when evaluating expressions
-			let mut local_vars = Vec::new();
-			for var in &fun.vars {
-				local_vars.push((var.name.clone(), var.vtype.clone()));
-			}
 
 			// Generate the label for the current function
 			gen_code.push_str(&format!("{}:\n", fun.name));
@@ -53,16 +48,32 @@ fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &Hash
 			// Reserve space for the locals of this function
 			gen_code.push_str(&format!("link {}\n", fun.vars.len()));
 
+			// We need to store all the local vars we have somewhere so that we can find them later when evaluating expressions
+			let mut local_vars = Vec::new();
+
 			// Code for the locals:
 			// Every expression results in a value (which is either a plain value or a pointer). So generate the
 			// code that evaluates this and puts this value at the top of the stack. Afterwards move it to the
 			// place where it belongs.
-			for (index, var) in fun.vars.iter().enumerate() {
+			let mut index = 0;
+			for var in fun.vars.iter() {
 				let expression_code = generate_expression(&var.value, global_vars, &param_vars, &local_vars, expr_type);
 				gen_code.push_str(&expression_code);
 
+				// We need to know whether the variable was used before (and thus has an index) or not.
+				let actual_index = match fun.vars.iter().position(|x| x.name == var.name) {
+					Some(pos) => pos,
+					None => {index += 1; index - 1}
+				};
+
 				// Store computed value at the place where it belongs
-				gen_code.push_str(&format!("stl {}\n", index + 1));
+				gen_code.push_str(&format!("stl {}\n", actual_index + 1));
+
+				// Ensure local vars shadow previous ones by removing the previous one
+				if let Some(pos) = local_vars.iter().position(|x| x.0 == var.name) {
+					local_vars.remove(pos);
+				}
+				local_vars.push((var.name.clone(), var.vtype.clone()));
 			}
 
 			// Code for the statements:

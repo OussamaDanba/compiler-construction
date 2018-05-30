@@ -85,12 +85,18 @@ fn generate_functions(ast: &SPL, global_vars: &[(Ident, Type)], expr_type: &Hash
 				for var in &fun.vars {
 					// Make a random mapping for the variable and enter it into the type environment
 					let random_label = gen_random_label();
-					local_vars.push((var.name.clone(), var.vtype.clone(), random_label.clone()));
 
 					gen_code.push_str(&format!("{} {} = {};\n",
 						generate_type_name(&var.vtype),
 						random_label,
 						generate_expression(&random_label, &var.value, global_vars, &param_vars, &local_vars, expr_type)));
+
+
+					// Ensure local vars shadow previous ones by removing the previous one
+					if let Some(pos) = local_vars.iter().position(|x| x.0 == var.name) {
+						local_vars.remove(pos);
+					}
+					local_vars.push((var.name.clone(), var.vtype.clone(), random_label.clone()));
 				}
 
 				for stmt in &fun.stmts {

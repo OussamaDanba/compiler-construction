@@ -22,18 +22,14 @@ In this report I will describe my SPL compiler written in the programming langua
 
 The report is divided in the sections: Scanning and Parsing, Semantic Analysis, Code Generation, and Compiler Extension. This is done to reflect the course set-up.
 
-This report is accompanied with some basic tests for the compiler. What each test is supposed to test can be found inside the test.
+This report is accompanied with some programs for the compiler. These are included to show what the compiler is able to handle and some of the choices made.
 
 \section{Rust and Statistics}
-Before the course began I knew we were allowed to use any language we preferred and that we would cover recursive descent parsing. I briefly considered using a functional programming language (either Clean or Haskell) but decided against it as I do not consider myself comfortable enough in those languages. I frequently struggle with coming up with an alternative solution in those languages if my initial solution does not work. As such, I wanted something more imperative. Out of the more imperative languages my favorite language for a while has been Rust. It is a low-level programming language with no runtime system (no garbage collector or JIT) and is able to provide guarantees that code is safe at compile-time (no buffer overflows, no memory corruption, data-race free, \dots). The compiler provides really useful error messages, the package manager is incredibly useful, and the language has a lot of functional aspects (higher order functions, lazy evaluation, nested functions, pattern matching, \dots). I've been working with Rust for a while now but haven't had the chance to do a larger project yet. Writing the compiler in Rust seemed to be an ideal project.
+Before the course began I knew we were allowed to use any language we preferred and that we would cover recursive descent parsing. I briefly considered using a functional programming language (either Clean or Haskell) but decided against it as I do not consider myself comfortable enough in those languages. I frequently struggle with coming up with an alternative solution in those languages if my initial solution does not work. As such, I wanted something more imperative. Out of the more imperative languages my favorite language for a while has been Rust. It is a low-level programming language with no runtime system (no garbage collector or JIT) and is able to provide guarantees that code is safe at compile-time (no buffer overflows, no memory corruption, data-race free, \dots). The compiler provides really useful error messages, the package manager is incredibly useful, and the language has a lot of functional aspects (higher order functions, some lazy evaluation, nested functions, pattern matching, \dots). I've been working with Rust for a while now but haven't had the chance to do a larger project yet. Writing the compiler in Rust seemed to be an ideal project.
 
-Now for some statistics about the compiler. The scanner is about 200 lines of code and took slightly more than a work day to make (about 10 hours). The parser is about 400 lines of code and took about three days to complete (with another day for fixing some minor bugs and making the pretty-printer) so I would estimate that at 28 hours. Semantic analysis is about the same size at around 400 lines of code. That took about two full days of work (10-11 hours a day; I tend to prefer to work in bulk) and another slower day for a total of about 25 hours. The code generator is larger than the previous ones with about 500 lines of code. It also ended up taking most of the time with three days of actual work and another day spent thinking about the structure of everything. I would estimate that at 30 hours.
+Now for some statistics about the compiler. The scanner is about 200 lines of code and took slightly more than a work day to make (about 10 hours). The parser is about 400 lines of code and took about three days to complete (with another day for fixing some minor bugs and making the pretty-printer) so I would estimate that at 28 hours. Semantic analysis is about the same size at around 400 lines of code. That took about two full days of work (10-11 hours a day; I tend to prefer to work in bulk) and another slower day for a total of about 25 hours. The code generator is larger than the previous ones with about 500 lines of code. It also ended up taking most of the time with three days of actual work and another day spent thinking about the structure of everything. I would estimate that at 30 hours. The compiler extension took two long days of work and an afternoon. I would estimate that at 25 hours. It was also around 500 lines of code.
 
-% extension still to be done
-
-Besides working on the compiler there is also time spent changing older things (I've changed the operator precedence half a dozen of times), thinking about the assignment, making presentations, and making this report. All in all I do think I spent about 6 EC of time into this course which I found surprising as I'm working alone.
-
-% still 6 EC?
+Besides working on the compiler there is also time spent changing older things (I've changed the operator precedence half a dozen of times), thinking about the assignment, making presentations, and making this report. All in all I do think I spent about 6 EC of time into this course.
 
 \section{Scanning and Parsing}
 The first thing to note here is that the scanner (also known as lexer) and parser are two separate entities. My primary reason for doing this is that it allows the parser to abstract from all whitespace since it is handled by the scanner. This would simplify the parser to only deal with the actual contents of the source code. Additionally it allowed me to work on the scanner before the lecture on parsers had occurred.
@@ -221,7 +217,6 @@ For the basic types it simply prints the keyword whereas for composed types it p
 
 The most difficult part is managing indentation and ensuring that there are no excessive brackets/braces. Thus for pretty printing the operators which are left associative and the precedence of operators are stored somewhere rather than only describing them through the grammar. The most difficult part is when operators are chained. Currently this is implemented by checking the left and right side of a binary operator and seeing which side has a higher precedence and what the associativity of each side is. The result is a pretty-printer that does indenting and puts braces whenever necessary.
 
-% typing / scoping rules?
 \section{Semantic Analysis}
 Smenatic Analysis consists of binding time analysis and type checking/inference. For type checking/inference I decided to start with monomorphic type checking and potentially extend to polymorphic type checking if time allowed me to. Unfortunately this did not end up happening and I stuck with monomorphic type checking with the exception of isEmpty in order to make the language somewhat useful. The type checking does not apply for print as it is supposed to be overloaded for every type. Leaving out polymorphic type checking did allow me to implement monomorphic type checking well.
 
@@ -229,7 +224,9 @@ In order to only support monomorphic type checking the grammar had to be changed
 
 For binding time analysis my compiler makes use of a type environment. This type environment stores the names of functions and variables and their corresponding type. Whenever a variable is shadowed by a newer variable declaration it is replaced in the type environment. As a result an identifier only has to be checked for existence in the type environment to determine whether it is in scope or not. The type stored is used to make sure the type of the identifier fits in the context it is used in. A bit of extra care has to be taken whenever a variable is shadowed since one function shadowing a variable should not affect another function not shadowing this variable.
 
-The type checker has a specific order in which it works. It first scans all the function headers and checks if they are correct (correct amount of parameters with the specified types). If they are correct they are entered into the type environment. This can be done without information on anything else and which is why it occurs first.
+The scoping rules are as follows: Global variables are always available and can be shadowed by parameters and local variables. Parameters are only available within a function and can be shadowed by the local variables. Local variables can use the same name multiple times and are able to shadow themselves (rather than only using the last one). For all variable shadowing it is allowed that the type changes with the new variable shadowing. Every use of a shadowed variable will always correspond to the most recent shadowing.
+
+The type checker has a specific order in which it works. It first scans all the function headers and checks if they are correct (correct amount of parameters with the specified types). If they are correct they are entered into the type environment. This can be done without information on anything else and which is why it occurs first. Doing this first also allows mutual recursion of functions to work.
 
 After that all global variables are checked. A global variable is checked by making sure the specified type at the left side matches the type the right side returns. This has to be done after entering functions into the type environment since expressions at the right side might have function calls which have to be checked.
 
@@ -258,7 +255,7 @@ expects type 'Int'.
 
 Something to note about error handling in general. Every stage of the compiler increasingly works on data that is further from the original source code making it harder to have good error messages. In the scanner it is still working directly on the source string. In the parser it is working on Tokens which I annotated with positions for error reporting. During semantic analysis it works on the AST which has no relation to the original source code anymore. To get somewhat around this the pretty-printer is used to print the context.
 
-Briefly mentioned before was the exception to make print and isEmpty polymorphic. As a result print always passes the type checker and isEmpty only passes the type checker as long as a list of some type is given. Since the type of the expressions that are printed is known the code generator can generate code to accommodate this.
+Since print is overloaded it always passes the type checker and isEmpty only passes the type checker as long as a list of some type is given (polymorphic). Since the type of the expressions that are printed is known the code generator can generate code to accommodate this.
 
 \subsubsection*{Semantic Analysis Grammar:}
 \begin{grammar}
@@ -367,6 +364,8 @@ With that the code generator is complete. It works fine but doesn't generate the
 
 \section{Generating C code}
 For the compiler extension I wanted to be able to use SPL functions from other languages as SPL itself is somewhat limited in functionality. In order to accomplish this SPL needs to compile to real machine code rather than SSM. To me, the most straightforward way to accomplish this was to compile to C code. Compiling SPL to C code allows a C compiler to generate the real machine code. The resulting object file can then be statically linked with other programs allowing SPL functions to be used. Compiling to C code has multiple advantages. It uses the C calling convention making more easily compatible with other languages, it makes SPL somewhat cross-platform, and it produces optimized code.
+
+% see presentation for more
 
 % describe challenges and how solved
 % how does the implementation look

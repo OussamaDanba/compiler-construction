@@ -363,17 +363,68 @@ Implementing print for tuples and lists is easy once the basic types are done. T
 With that the code generator is complete. It works fine but doesn't generate the best code but that wasn't really the goal. Choosing to implement lists as linked lists proved to be harder and it doesn't really result in much benefit. In terms of memory it uses more since every element now needs two words rather than every element needing one word and some fixed small overhead. In terms of performance it's not faster either except when doing frequent list manipulation.
 
 \section{Generating C code}
-For the compiler extension I wanted to be able to use SPL functions from other languages as SPL itself is somewhat limited in functionality. In order to accomplish this SPL needs to compile to real machine code rather than SSM. To me, the most straightforward way to accomplish this was to compile to C code. Compiling SPL to C code allows a C compiler to generate the real machine code. The resulting object file can then be statically linked with other programs allowing SPL functions to be used. Compiling to C code has multiple advantages. It uses the C calling convention making more easily compatible with other languages, it makes SPL somewhat cross-platform, and it produces optimized code.
+For the compiler extension I wanted to be able to use SPL functions from other languages as SPL itself is somewhat limited in functionality. In order to accomplish this SPL needs to compile to real machine code rather than SSM. To me, the most straightforward way to accomplish this was to compile to C code. Compiling SPL to C code allows a C compiler to generate the real machine code. The resulting object file can then be (statically) linked with other programs allowing SPL functions to be used. Compiling to C code has multiple advantages. It uses the C calling convention making it more easily compatible with other languages, it makes SPL somewhat cross-platform, and it produces optimized code.
 
-% see presentation for more
+When generating C code from SPL there are a few obstacles that needed to be cleared. The first obstacle is that C does not have tuples or linked lists. In order to have support for tuples the generated C code uses a struct which holds two \texttt{uintptr\_t} (pointers without type); one for the first element and one for the second element. Rather than always having these be pointers \textit{to data} I use the pointers \textit{as data} for basic types. So an integer in SPL with the value 5 would be a ``pointer'' to the address 5. When using these tuples the SPL compiler has enough type information to appropriately cast them to the correct type. The struct looks as follows:
+\begin{lstlisting}[language=C, style=boxed]
+typedef struct {
+	uintptr_t fst;
+	uintptr_t snd;
+} _tuple;
+\end{lstlisting}
 
-% describe challenges and how solved
-% how does the implementation look
+Just like tuples linked lists can not be expressed in C using the default types. An array is not sufficient as I made the decision in during code generation for SSM to allow these linked lists to be circular. For linked lists the C code generator also makes use of structs. The first member of this struct is a ``pointer'' to the head of the list whereas the second member is a true pointer to the tail of the list. Just like the code generator for SSM if the tail points to 0x0 then it is considered the empty list. The struct looks as follows:
+\begin{lstlisting}[language=C, style=boxed]
+typedef struct {
+	uintptr_t hd;
+	uintptr_t tl;
+} _list;
+\end{lstlisting}
 
-% semantics preserving was most difficulty (no short-circuiting, variable shadowing)
-% why malloc is needed
-% implementing == (C == is by reference)
-% implementing globals
+In C structs can either be on the stack or on the heap but due to the semantics of SPL it is required that they are allocated on the heap. Imagine the following SPL program:
+\begin{lstlisting}[language=Rust, style=boxed]
+[Int] x = [];
+
+modifyList()  :: -> Void {
+	x = 1 : x;
+}
+
+main() :: -> Void {
+	modifyList();
+	print(x);
+}
+\end{lstlisting}
+
+The expected output of that program would be \texttt{1 : []}. If the generated C code were to place \texttt{x} on the stack then this would create a problem. When creating a new list with 1 as the head, the tail would point to where \texttt{x} is stored. But afterwards \texttt{x} is overwritten with the newly created list, thus invalidating the pointer. If lists were heap allocated then the newly created list would point to an address in the heap where the empty list is stored.
+
+The first thing I implemented was expressions. Literals are easy since they are simply a syntactical translation. Some other expressions such as tuples require a little more work. Tuples are one of the many expressions which almost require multiple lines of C code rather than a single one. A tuple has to first be allocated using \texttt{malloc}. Then the first element has to be evaluated which then has to be put into the \texttt{fst} member. The same holds true for the second element. Function calls are similar in the way that the arguments of that function calls should first be evaluated; thus requiring multiple lines of generated C code. Another expression that is difficult to do is asking for the head of an identifier. Just like the generated code for the SSM the generated C code must check if the code is asking for the head of an empty list. If so, it should cause a run-time exception.
+
+The more interesting expressions are the binary operators. As stated before I chose to explicitly disallow short-circuiting during the SSM code generation. This behavior must be preserved when generating C code. Since C has short-circuiting by default all I must thus \textit{first} evaluate both sides before doing something with the binary operator. The most difficult binary operator to implement was \texttt{==}. Again, this is because I have chosen to check equality for all elements rather than only comparing the references. When comparing structs C uses references so I can't rely on that for tuples/lists. For basic types I do rely on C to do the equality.
+
+Equality for tuples is the easier of the two since the SPL type system guarantees that the compiler knows how much code to generate. A programmer can't infinitely ask for the first or second element of a tuple since at some point the type system doesn't allow it.
+
+Checking equality for lists I implemented by generating C code for a while-loop. This while-loop continuously compares the equality of the heads until one of the lists (or both) is empty. Then there is some code afterwards that determines the final result which takes into account if any of the heads were not equal and, if they all were equal, if both lists have the same length (by checking if they both are currently empty). This is a little complicated by the fact that lists can be nested so checking equality of the heads requires a little bit of extra code. Once equality if implemented inequality if trivial to implement by simply inverting the result.
+
+Variable shadowing is also a small obstacle when generating C code. Imagine the following valid SPL code (in my compiler, at least):
+\begin{lstlisting}[language=Rust, style=boxed]
+Int x = 5;
+test(x)  :: Bool -> Void {
+	(Char, Int) x = ('a', 42);
+	Char x = x.fst;
+	print(x);
+}
+\end{lstlisting}
+
+The global variable \texttt{x} is shadowed by the parameter \texttt{x} which in turn is shadowed by the local variable \texttt{x} which in turn is shadowed by another local variable \texttt{x}. All of these variables \texttt{x} have a different type. When generating SSM code this is not a problem since names disappear when generating assembly. However, when generating C code this does not work. In C you can not shadow globals/parameters with a local using the same name (possibly with a different type). Nor is it possible for a local variable to shadow another local variable with the same name. To solve this problem my C code generator generates random names for locals and has a mapping from an identifier in the AST to the ``real'' variable name.
+
+Another situation where SPL works a little differently from C is when dealing with global variables. In SPL global variables do not have to be constant expressions while in C they do have to be. A global variable which holds the result of a function call can be done in SPL but not in C. In the SSM I implemented this to immediately evaluate all the global variables. A similar thing must be done in C. I have solved this by splitting the declaration and initialization of global variables. At the start of the C code all global variables are declared in case functions needs them and in the main function they are initialized. The main function from SPL is renamed \texttt{spl\_main} for convenience. This does have one downside and that is when other code calls generated C code from SPL they must ensure that global variables have been initialized by calling the main function or the function they are calling does not use a global state that is not set by the current program. I believe this is a reason why C opted to only allow constant expressions for globals as this situation is then never a problem as all globals are known at compile-time.
+
+The only thing left to do is code generation for statements. This was mostly trivial as every SPL statement has a direct counterpart in C that works in the same way. The only real difference is that expressions are first evaluated before being passed into if/else-statements or while-loops as they might occupy multiple lines of C code.
+
+Implementing isEmpty is rather easy since the SPL compiler ensures only lists are passed. It simply checks if the second member of the struct (the tail) is 0. Implementing print was similar to implementing print in the SSM code generator in that it is done inline. The basic types compile to a \texttt{printf} in C whereas tuples/lists print the symbols around the data and then generate code for the elements which may be basic types or tuples/lists.
+
+Now that the C code generator is complete and functional I tried compiling a simple SPL program that computes the square of an integer. Since this program had no need for a main function I removed it and compiled the resulting C program into an object file. I then statically linked it to a program which used the square function. This works and thus it is possible to use SPL functions from other languages. I also briefly tested a function which takes a tuple as argument which also worked.
+
 \clearpage
 \appendix
 \section{Scanner Tokens}

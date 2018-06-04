@@ -544,11 +544,17 @@ fn generate_print(var_name: &str, expr_type: &Type) -> String {
 			gen_code.push_str("printf(\")\");\n");
 		},
 		Type::TList(ref inner) => {
+			let split_var_name: String = if !var_name.split_whitespace().skip(1).collect::<String>().is_empty() {
+				format!("({}", var_name.split_whitespace().skip(1).collect::<String>())
+			} else {
+				var_name.to_string()
+			};
+
 			gen_code.push_str(&format!("while(!isEmpty({})) {{\n{}{}{}}}\n",
 				var_name,
 				generate_print(&format!("(({}) {}->hd)", generate_type_name(inner), var_name), inner),
 				"printf(\" : \");\n",
-				format!("{} = (_list*) {}->tl;\n", var_name, var_name))
+				format!("{} = (_list*) {}->tl;\n", split_var_name, var_name))
 			);
 			gen_code.push_str("printf(\"[]\");\n");
 		},

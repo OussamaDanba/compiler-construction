@@ -1,0 +1,35 @@
+[[Int]] x = (0 : 1 : 2 : []) : (3 : 4 : 5 : []) : (6 : 7 : 8 : []) : [];
+
+list_sum(list) :: [Int] -> Int {
+	Int sum = 0;
+	while(!isEmpty(list)) {
+		sum = sum + list.hd;
+		list = list.tl;
+	}
+	return sum;
+}
+
+matrix_sum(list) :: [[Int]] -> Int {
+	Int sum = 0;
+	while(!isEmpty(list)) {
+		sum = sum + list_sum(list.hd);
+		list = list.tl;
+	}
+	return sum;
+}
+
+// Not needed as the functions work on arbitrary matrices
+//len_list(list) :: [Int] -> Int {
+//	Int length = 0;
+//	while(!isEmpty(list)) {
+//		list = list.tl;
+//		length = length + 1;
+//	}
+//	return length;
+//}
+
+main() :: -> Void {
+	Int sum = matrix_sum(x);
+
+	print(sum);
+}

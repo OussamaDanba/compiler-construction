@@ -26,48 +26,48 @@ int RuntimeErr() {
 }
 
 bool is_even(int n) {
-bool _ufVK4ZDE0 = 0;
-int _T0safl1Rn = (int) n;
-int _ivXKnTzac = 0;
-_ufVK4ZDE0 = _T0safl1Rn == _ivXKnTzac;
-if(_ufVK4ZDE0) {
-bool _76BKIVuiX = true;
-return _76BKIVuiX;
+bool _N0xEXvii8 = 0;
+int _qdiUgiNCa = (int) n;
+int _th3BH9Ame = 0;
+_N0xEXvii8 = _qdiUgiNCa == _th3BH9Ame;
+if(_N0xEXvii8) {
+bool _gOVfWvHXS = true;
+return _gOVfWvHXS;
 } else {
-bool _qZ2juZN5p = 0;
-int _8tsjFUv4v = 0;
-int _XZ5JmpxDs = (int) n;
-int _ezMsTOK2s = 1;
-_8tsjFUv4v = _XZ5JmpxDs - _ezMsTOK2s;
-_qZ2juZN5p = is_odd(_8tsjFUv4v);
-return _qZ2juZN5p;
+bool _4muFL1dtf = 0;
+int _UDi2nye8s = 0;
+int _uzR8v8TtC = (int) n;
+int _kHLuEOgPf = 1;
+_UDi2nye8s = _uzR8v8TtC - _kHLuEOgPf;
+_4muFL1dtf = is_odd(_UDi2nye8s);
+return _4muFL1dtf;
 }
 }
 
 bool is_odd(int n) {
-bool _hu0T5nGNz = 0;
-int _2sCQUNALt = (int) n;
-int _URMKMo9H3 = 0;
-_hu0T5nGNz = _2sCQUNALt == _URMKMo9H3;
-if(_hu0T5nGNz) {
-bool _B18Gj8QsA = false;
-return _B18Gj8QsA;
+bool _1i5DI9dx5 = 0;
+int _KhpQcn0GE = (int) n;
+int _TKUQUJS4L = 0;
+_1i5DI9dx5 = _KhpQcn0GE == _TKUQUJS4L;
+if(_1i5DI9dx5) {
+bool _uKD8gFzc0 = false;
+return _uKD8gFzc0;
 } else {
-bool _eRBJEQuh0 = 0;
-int _9fEvpzEAD = 0;
-int _2MwGIRI2Q = (int) n;
-int _FFFbPdNl3 = 1;
-_9fEvpzEAD = _2MwGIRI2Q - _FFFbPdNl3;
-_eRBJEQuh0 = is_even(_9fEvpzEAD);
-return _eRBJEQuh0;
+bool _mVJcVEo0T = 0;
+int _VNB7cTWes = 0;
+int _Qp70fVXv6 = (int) n;
+int _A7tAQ9xby = 1;
+_VNB7cTWes = _Qp70fVXv6 - _A7tAQ9xby;
+_mVJcVEo0T = is_even(_VNB7cTWes);
+return _mVJcVEo0T;
 }
 }
 
 void spl_main() {
-bool _1wMrv6xEt = 0;
-int _iiaECPu8x = 10;
-_1wMrv6xEt = is_even(_iiaECPu8x);
-if(_1wMrv6xEt) {
+bool _8LeBB1wWL = 0;
+int _QkXpjbwQI = 10;
+_8LeBB1wWL = is_even(_QkXpjbwQI);
+if(_8LeBB1wWL) {
 printf("True");
 } else {
 printf("False");

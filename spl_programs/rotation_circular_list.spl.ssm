@@ -3,8 +3,8 @@ bsr main
 halt
 printNumElements:
 link 0
-bra DYq1BHgKyB
-5AldrBq009:
+bra a6RAiV6ySJ
+hJFYRmRpft:
 ldl -2
 ldmh 0 2
 swp
@@ -14,17 +14,17 @@ brt RuntimeErr
 lds 0
 ldc 0
 lt
-brf QUa9xu7qQ8
+brf ODkXqbkPa4
 ldc 0
 swp
 sub
 ldc 45
 trap 1
-QUa9xu7qQ8:
+ODkXqbkPa4:
 str R6
 ldc 0
 str R7
-9HcuPqndh3:
+87KigorRP5:
 ldr R6
 ldc 10
 mod
@@ -41,8 +41,8 @@ str R6
 ajs 1
 ldc 0
 eq
-brf 9HcuPqndh3
-jQxOgiCtQP:
+brf 87KigorRP5
+hg8kdiD0NG:
 trap 1
 ldr R7
 ldc 1
@@ -51,7 +51,7 @@ str R7
 ajs 1
 ldc 0
 eq
-brf jQxOgiCtQP
+brf hg8kdiD0NG
 ldc 10
 trap 1
 ldr RR
@@ -69,7 +69,7 @@ ldc 1
 sub
 ldla -3
 sta 0
-DYq1BHgKyB:
+a6RAiV6ySJ:
 ldl -2
 bsr isEmpty
 ldr RR
@@ -78,7 +78,7 @@ ldl -3
 ldc 0
 gt
 and
-brt 5AldrBq009
+brt hJFYRmRpft
 unlink
 sts -2
 ajs -1
@@ -87,8 +87,8 @@ rotateRight:
 link 1
 ldc 0
 stl 1
-bra ojhBe0xCnd
-68lekOqTku:
+bra fWM0Blq8NH
+47pWtGhVIc:
 ldl -3
 ldh -1
 lds 0
@@ -102,11 +102,11 @@ ldc 1
 add
 ldla 1
 sta 0
-ojhBe0xCnd:
+fWM0Blq8NH:
 ldl 1
 ldl -2
 lt
-brt 68lekOqTku
+brt 47pWtGhVIc
 ldl -3
 str RR
 unlink

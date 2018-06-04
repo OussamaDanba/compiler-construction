@@ -26,102 +26,102 @@ int RuntimeErr() {
 }
 
 void printNumElements(_list* list,int n) {
-bool _J0l41hWjd = 0;
-bool _medhxKAyv = 0;
-_list* _G6GXub3As = (_list*) list;
-_medhxKAyv = isEmpty(_G6GXub3As);
-_medhxKAyv = !_medhxKAyv;
-bool _Jje5q0VBH = 0;
-int _lOkdj1FfP = (int) n;
-int _MTHxThYSw = 0;
-_Jje5q0VBH = _lOkdj1FfP > _MTHxThYSw;
-_J0l41hWjd = _medhxKAyv && _Jje5q0VBH;
-while(_J0l41hWjd) {
-int _OTEpPEVI3 = (int) (((_list*) list)->tl == 0 ? RuntimeErr() : ((_list*) list)->hd);
-printf("%i", _OTEpPEVI3);
+bool _kYxbR4gS4 = 0;
+bool _cVmdMtued = 0;
+_list* _RCaYgnSHO = (_list*) list;
+_cVmdMtued = isEmpty(_RCaYgnSHO);
+_cVmdMtued = !_cVmdMtued;
+bool _2e8ZxWyvP = 0;
+int _BDaoQwpeX = (int) n;
+int _GYWp26Fj7 = 0;
+_2e8ZxWyvP = _BDaoQwpeX > _GYWp26Fj7;
+_kYxbR4gS4 = _cVmdMtued && _2e8ZxWyvP;
+while(_kYxbR4gS4) {
+int _ZyuXDgmmB = (int) (((_list*) list)->tl == 0 ? RuntimeErr() : ((_list*) list)->hd);
+printf("%i", _ZyuXDgmmB);
 printf("\n");
-_list* _OkLqdLKah = (_list*) (((_list*) list)->tl == 0 ? RuntimeErr() : ((_list*) list)->tl);
-uintptr_t _Lk7hUq4m6 = (uintptr_t) (_list*) list;
-list = (uintptr_t) _OkLqdLKah;
-int _Ii8ktPO7U = 0;
-int _1EiUoiOpS = (int) n;
-int _7hL0TbSnV = 1;
-_Ii8ktPO7U = _1EiUoiOpS - _7hL0TbSnV;
-uintptr_t _tWOZW1qoX = (uintptr_t) (int) n;
-n = (uintptr_t) _Ii8ktPO7U;
-_J0l41hWjd = 0;
-bool _7PZtP6lwh = 0;
-_list* _SDdU2nKnM = (_list*) list;
-_7PZtP6lwh = isEmpty(_SDdU2nKnM);
-_7PZtP6lwh = !_7PZtP6lwh;
-bool _HfXqspckd = 0;
-int _jfIX8TjbQ = (int) n;
-int _cgqHIt88S = 0;
-_HfXqspckd = _jfIX8TjbQ > _cgqHIt88S;
-_J0l41hWjd = _7PZtP6lwh && _HfXqspckd;
+_list* _cxrXOmeqq = (_list*) (((_list*) list)->tl == 0 ? RuntimeErr() : ((_list*) list)->tl);
+uintptr_t _aoec2LKHc = (uintptr_t) (_list*) list;
+list = (uintptr_t) _cxrXOmeqq;
+int _1q2Ap5QBB = 0;
+int _qovOtdux9 = (int) n;
+int _QqhTkSxNq = 1;
+_1q2Ap5QBB = _qovOtdux9 - _QqhTkSxNq;
+uintptr_t _fbv4Oandc = (uintptr_t) (int) n;
+n = (uintptr_t) _1q2Ap5QBB;
+_kYxbR4gS4 = 0;
+bool _5h9qc0pw1 = 0;
+_list* _5selg0fJb = (_list*) list;
+_5h9qc0pw1 = isEmpty(_5selg0fJb);
+_5h9qc0pw1 = !_5h9qc0pw1;
+bool _btrhjEFny = 0;
+int _KmhpAIpbr = (int) n;
+int _H7UCXVm5h = 0;
+_btrhjEFny = _KmhpAIpbr > _H7UCXVm5h;
+_kYxbR4gS4 = _5h9qc0pw1 && _btrhjEFny;
 }
 }
 
 _list* rotateRight(int x,_list* list) {
-int _bDjnkxPEn = 0;
-bool _hsTjj1c8n = 0;
-int _A8jNpx71L = (int) _bDjnkxPEn;
-int _HDsbzDxs0 = (int) x;
-_hsTjj1c8n = _A8jNpx71L < _HDsbzDxs0;
-while(_hsTjj1c8n) {
-_list* _SvYBGuFrS = (_list*) (((_list*) list)->tl == 0 ? RuntimeErr() : ((_list*) list)->tl);
-uintptr_t _vQWWvV5gQ = (uintptr_t) (_list*) list;
-list = (uintptr_t) _SvYBGuFrS;
-int _6tmzk5OYW = 0;
-int _26ieFjvwh = (int) _bDjnkxPEn;
-int _cWs23fFYc = 1;
-_6tmzk5OYW = _26ieFjvwh + _cWs23fFYc;
-uintptr_t _uzdUSY8u2 = (uintptr_t) (int) _bDjnkxPEn;
-_bDjnkxPEn = (uintptr_t) _6tmzk5OYW;
-_hsTjj1c8n = 0;
-int _lpebc0oep = (int) _bDjnkxPEn;
-int _GPwBt60fd = (int) x;
-_hsTjj1c8n = _lpebc0oep < _GPwBt60fd;
+int _6enjqOWhg = 0;
+bool _mnwfRmwec = 0;
+int _ehRgZQHo9 = (int) _6enjqOWhg;
+int _A35ubspuH = (int) x;
+_mnwfRmwec = _ehRgZQHo9 < _A35ubspuH;
+while(_mnwfRmwec) {
+_list* _k0RlBkCFE = (_list*) (((_list*) list)->tl == 0 ? RuntimeErr() : ((_list*) list)->tl);
+uintptr_t _znb2eaEL4 = (uintptr_t) (_list*) list;
+list = (uintptr_t) _k0RlBkCFE;
+int _W2FIggIgt = 0;
+int _cKAEOtKbP = (int) _6enjqOWhg;
+int _fByasD7cv = 1;
+_W2FIggIgt = _cKAEOtKbP + _fByasD7cv;
+uintptr_t _Bsik1tRKY = (uintptr_t) (int) _6enjqOWhg;
+_6enjqOWhg = (uintptr_t) _W2FIggIgt;
+_mnwfRmwec = 0;
+int _m1sDsVLCf = (int) _6enjqOWhg;
+int _dYTDsQaux = (int) x;
+_mnwfRmwec = _m1sDsVLCf < _dYTDsQaux;
 }
-_list* _8zhN4e34L = (_list*) list;
-return _8zhN4e34L;
+_list* _O2llMNGlL = (_list*) list;
+return _O2llMNGlL;
 }
 
 void spl_main() {
-_list* _PdP2C88V2 = 0;
-int _QE4XQKh4O = 1;
-_list* _JGAxZJvQd = 0;
-int _WGW3y16je = 2;
-_list* _UJBI0NC6X = 0;
-int _7qHrAfpUt = 3;
-_list* _8UkAfDj1M = 0;
-int _K0kxQcdI5 = 4;
-_list* _TBcTz09Km = malloc(sizeof(_list));
-_TBcTz09Km->tl = 0;
-_8UkAfDj1M = malloc(sizeof(_list));
-_8UkAfDj1M->hd = (uintptr_t) _K0kxQcdI5;
-_8UkAfDj1M->tl = (uintptr_t) _TBcTz09Km;
-_UJBI0NC6X = malloc(sizeof(_list));
-_UJBI0NC6X->hd = (uintptr_t) _7qHrAfpUt;
-_UJBI0NC6X->tl = (uintptr_t) _8UkAfDj1M;
-_JGAxZJvQd = malloc(sizeof(_list));
-_JGAxZJvQd->hd = (uintptr_t) _WGW3y16je;
-_JGAxZJvQd->tl = (uintptr_t) _UJBI0NC6X;
-_PdP2C88V2 = malloc(sizeof(_list));
-_PdP2C88V2->hd = (uintptr_t) _QE4XQKh4O;
-_PdP2C88V2->tl = (uintptr_t) _JGAxZJvQd;
-_list* _bQVbvr2nb = (_list*) _PdP2C88V2;
-uintptr_t _K98qAbvUM = (uintptr_t) (_list*) (((_list*) (((_list*) (((_list*) (((_list*) _PdP2C88V2)->tl == 0 ? RuntimeErr() : ((_list*) _PdP2C88V2)->tl))->tl == 0 ? RuntimeErr() : ((_list*) (((_list*) _PdP2C88V2)->tl == 0 ? RuntimeErr() : ((_list*) _PdP2C88V2)->tl))->tl))->tl == 0 ? RuntimeErr() : ((_list*) (((_list*) (((_list*) _PdP2C88V2)->tl == 0 ? RuntimeErr() : ((_list*) _PdP2C88V2)->tl))->tl == 0 ? RuntimeErr() : ((_list*) (((_list*) _PdP2C88V2)->tl == 0 ? RuntimeErr() : ((_list*) _PdP2C88V2)->tl))->tl))->tl))->tl == 0 ? RuntimeErr() : ((_list*) (((_list*) (((_list*) (((_list*) _PdP2C88V2)->tl == 0 ? RuntimeErr() : ((_list*) _PdP2C88V2)->tl))->tl == 0 ? RuntimeErr() : ((_list*) (((_list*) _PdP2C88V2)->tl == 0 ? RuntimeErr() : ((_list*) _PdP2C88V2)->tl))->tl))->tl == 0 ? RuntimeErr() : ((_list*) (((_list*) (((_list*) _PdP2C88V2)->tl == 0 ? RuntimeErr() : ((_list*) _PdP2C88V2)->tl))->tl == 0 ? RuntimeErr() : ((_list*) (((_list*) _PdP2C88V2)->tl == 0 ? RuntimeErr() : ((_list*) _PdP2C88V2)->tl))->tl))->tl))->tl);
-((_list*)((_list*)((_list*)((_list*)_PdP2C88V2)->tl)->tl)->tl)->tl = (uintptr_t) _bQVbvr2nb;
-_list* _cozodKvmB = 0;
-int _R3CK0Cyrg = 37;
-_list* _3adnUUU8y = (_list*) _PdP2C88V2;
-_cozodKvmB = rotateRight(_R3CK0Cyrg,_3adnUUU8y);
-uintptr_t _xF5178Tv5 = (uintptr_t) (_list*) _PdP2C88V2;
-_PdP2C88V2 = (uintptr_t) _cozodKvmB;
-_list* _2h2ElSHvD = (_list*) _PdP2C88V2;
-int _LpF1mLAdL = 21;
-printNumElements(_2h2ElSHvD,_LpF1mLAdL);
+_list* _DZUAx3vqw = 0;
+int _qBRkC88km = 1;
+_list* _00bPS27Gh = 0;
+int _TU6T3fCz5 = 2;
+_list* _fbBNEOBh2 = 0;
+int _nciajX0VD = 3;
+_list* _OVEIL6jzx = 0;
+int _A6ORkAa09 = 4;
+_list* _0wQ1p9Af1 = malloc(sizeof(_list));
+_0wQ1p9Af1->tl = 0;
+_OVEIL6jzx = malloc(sizeof(_list));
+_OVEIL6jzx->hd = (uintptr_t) _A6ORkAa09;
+_OVEIL6jzx->tl = (uintptr_t) _0wQ1p9Af1;
+_fbBNEOBh2 = malloc(sizeof(_list));
+_fbBNEOBh2->hd = (uintptr_t) _nciajX0VD;
+_fbBNEOBh2->tl = (uintptr_t) _OVEIL6jzx;
+_00bPS27Gh = malloc(sizeof(_list));
+_00bPS27Gh->hd = (uintptr_t) _TU6T3fCz5;
+_00bPS27Gh->tl = (uintptr_t) _fbBNEOBh2;
+_DZUAx3vqw = malloc(sizeof(_list));
+_DZUAx3vqw->hd = (uintptr_t) _qBRkC88km;
+_DZUAx3vqw->tl = (uintptr_t) _00bPS27Gh;
+_list* _Dqjkircop = (_list*) _DZUAx3vqw;
+uintptr_t _cZwa1b9Zq = (uintptr_t) (_list*) (((_list*) (((_list*) (((_list*) (((_list*) _DZUAx3vqw)->tl == 0 ? RuntimeErr() : ((_list*) _DZUAx3vqw)->tl))->tl == 0 ? RuntimeErr() : ((_list*) (((_list*) _DZUAx3vqw)->tl == 0 ? RuntimeErr() : ((_list*) _DZUAx3vqw)->tl))->tl))->tl == 0 ? RuntimeErr() : ((_list*) (((_list*) (((_list*) _DZUAx3vqw)->tl == 0 ? RuntimeErr() : ((_list*) _DZUAx3vqw)->tl))->tl == 0 ? RuntimeErr() : ((_list*) (((_list*) _DZUAx3vqw)->tl == 0 ? RuntimeErr() : ((_list*) _DZUAx3vqw)->tl))->tl))->tl))->tl == 0 ? RuntimeErr() : ((_list*) (((_list*) (((_list*) (((_list*) _DZUAx3vqw)->tl == 0 ? RuntimeErr() : ((_list*) _DZUAx3vqw)->tl))->tl == 0 ? RuntimeErr() : ((_list*) (((_list*) _DZUAx3vqw)->tl == 0 ? RuntimeErr() : ((_list*) _DZUAx3vqw)->tl))->tl))->tl == 0 ? RuntimeErr() : ((_list*) (((_list*) (((_list*) _DZUAx3vqw)->tl == 0 ? RuntimeErr() : ((_list*) _DZUAx3vqw)->tl))->tl == 0 ? RuntimeErr() : ((_list*) (((_list*) _DZUAx3vqw)->tl == 0 ? RuntimeErr() : ((_list*) _DZUAx3vqw)->tl))->tl))->tl))->tl);
+((_list*)((_list*)((_list*)((_list*)_DZUAx3vqw)->tl)->tl)->tl)->tl = (uintptr_t) _Dqjkircop;
+_list* _TyB5O84Cn = 0;
+int _iTj1OIvTw = 37;
+_list* _RMqZp1ZqC = (_list*) _DZUAx3vqw;
+_TyB5O84Cn = rotateRight(_iTj1OIvTw,_RMqZp1ZqC);
+uintptr_t _cKvqXKmCs = (uintptr_t) (_list*) _DZUAx3vqw;
+_DZUAx3vqw = (uintptr_t) _TyB5O84Cn;
+_list* _VImEcxyDG = (_list*) _DZUAx3vqw;
+int _389UTu7Gf = 21;
+printNumElements(_VImEcxyDG,_389UTu7Gf);
 }
 
 int main() {

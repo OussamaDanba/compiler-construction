@@ -1,0 +1,28 @@
+printNumElements(list, n) :: [Int] Int -> Void
+{
+    while( !isEmpty(list) && n > 0 )
+    {
+        print(list.hd);
+        list = list.tl;
+        n = n - 1;
+    }
+}
+
+rotateRight(x, list) :: Int [Int] -> [Int] {
+	Int counter = 0;
+	while(counter < x) {
+		list = list.tl;
+		counter = counter + 1;
+	}
+	return list;
+}
+
+main() :: -> Void {
+	// Create circular list
+	[Int] x = 1 : 2 : 3 : 4 : [];
+	x.tl.tl.tl.tl = x;
+
+	x = rotateRight(37, x);
+
+	printNumElements(x, 21);
+}

@@ -1,0 +1,202 @@
+ldrr R5 SP
+bsr main
+halt
+printNumElements:
+link 0
+bra DYq1BHgKyB
+5AldrBq009:
+ldl -2
+ldmh 0 2
+swp
+ldc 0
+eq
+brt RuntimeErr
+lds 0
+ldc 0
+lt
+brf QUa9xu7qQ8
+ldc 0
+swp
+sub
+ldc 45
+trap 1
+QUa9xu7qQ8:
+str R6
+ldc 0
+str R7
+9HcuPqndh3:
+ldr R6
+ldc 10
+mod
+ldc 48
+add
+ldr R7
+ldc 1
+add
+str R7
+ldr R6
+ldc 10
+div
+str R6
+ajs 1
+ldc 0
+eq
+brf 9HcuPqndh3
+jQxOgiCtQP:
+trap 1
+ldr R7
+ldc 1
+sub
+str R7
+ajs 1
+ldc 0
+eq
+brf jQxOgiCtQP
+ldc 10
+trap 1
+ldr RR
+ajs -1
+ldl -2
+ldh -1
+lds 0
+ldc 0
+eq
+brt RuntimeErr
+ldla -2
+sta 0
+ldl -3
+ldc 1
+sub
+ldla -3
+sta 0
+DYq1BHgKyB:
+ldl -2
+bsr isEmpty
+ldr RR
+not
+ldl -3
+ldc 0
+gt
+and
+brt 5AldrBq009
+unlink
+sts -2
+ajs -1
+ret
+rotateRight:
+link 1
+ldc 0
+stl 1
+bra ojhBe0xCnd
+68lekOqTku:
+ldl -3
+ldh -1
+lds 0
+ldc 0
+eq
+brt RuntimeErr
+ldla -3
+sta 0
+ldl 1
+ldc 1
+add
+ldla 1
+sta 0
+ojhBe0xCnd:
+ldl 1
+ldl -2
+lt
+brt 68lekOqTku
+ldl -3
+str RR
+unlink
+sts -2
+ajs -1
+ret
+main:
+link 1
+ldc 1
+ldc 2
+ldc 3
+ldc 4
+ldc 0
+ldc 0
+stmh 2
+swp
+stmh 2
+swp
+stmh 2
+swp
+stmh 2
+swp
+stmh 2
+stl 1
+ldl 1
+ldla 1
+lda 0
+lds 0
+ldh -1
+lds 0
+ldc 0
+eq
+brt RuntimeErr
+ajs -1
+ldc 1
+sub
+lda 0
+lds 0
+ldh -1
+lds 0
+ldc 0
+eq
+brt RuntimeErr
+ajs -1
+ldc 1
+sub
+lda 0
+lds 0
+ldh -1
+lds 0
+ldc 0
+eq
+brt RuntimeErr
+ajs -1
+ldc 1
+sub
+lda 0
+lds 0
+ldh -1
+lds 0
+ldc 0
+eq
+brt RuntimeErr
+ajs -1
+ldc 1
+sub
+sta 0
+ldl 1
+ldc 37
+bsr rotateRight
+ldr RR
+ldla 1
+sta 0
+ldc 21
+ldl 1
+bsr printNumElements
+ldr RR
+ajs -1
+unlink
+ret
+isEmpty:
+link 0
+ldl -2
+ldh -1
+ldc 0
+eq
+str RR
+unlink
+sts -1
+ret
+RuntimeErr:
+trap 0
+halt

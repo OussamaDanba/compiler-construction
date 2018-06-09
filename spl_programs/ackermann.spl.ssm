@@ -1,0 +1,192 @@
+ldrr R5 SP
+ldc 0
+bsr main
+halt
+main:
+link 0
+ldc 2
+ldc 3
+bsr ackermann
+ldr RR
+lds 0
+ldc 0
+lt
+brf XatgNAJ94r
+ldc 0
+swp
+sub
+ldc 45
+trap 1
+XatgNAJ94r:
+str R6
+ldc 0
+str R7
+ybSj5G8FnH:
+ldr R6
+ldc 10
+mod
+ldc 48
+add
+ldr R7
+ldc 1
+add
+str R7
+ldr R6
+ldc 10
+div
+str R6
+ajs 1
+ldc 0
+eq
+brf ybSj5G8FnH
+575VCh79jk:
+trap 1
+ldr R7
+ldc 1
+sub
+str R7
+ajs 1
+ldc 0
+eq
+brf 575VCh79jk
+ldc 10
+trap 1
+ldr RR
+ajs -1
+ldr R5
+lda 1
+lds 0
+ldc 0
+lt
+brf x66MkaI3DY
+ldc 0
+swp
+sub
+ldc 45
+trap 1
+x66MkaI3DY:
+str R6
+ldc 0
+str R7
+7hxu2y2KZW:
+ldr R6
+ldc 10
+mod
+ldc 48
+add
+ldr R7
+ldc 1
+add
+str R7
+ldr R6
+ldc 10
+div
+str R6
+ajs 1
+ldc 0
+eq
+brf 7hxu2y2KZW
+cJD8ZBNuFl:
+trap 1
+ldr R7
+ldc 1
+sub
+str R7
+ajs 1
+ldc 0
+eq
+brf cJD8ZBNuFl
+ldc 10
+trap 1
+ldr RR
+ajs -1
+unlink
+ret
+ackermann:
+link 0
+ldr R5
+lda 1
+ldc 1
+add
+ldr R5
+ldaa 1
+sta 0
+ldl -2
+ldc 0
+lt
+ldl -3
+ldc 0
+lt
+or
+brf 29lP5FSERu
+ldc -1
+str RR
+unlink
+sts -2
+ajs -1
+ret
+bra KPu6eOiXaj
+29lP5FSERu:
+KPu6eOiXaj:
+ldl -2
+ldc 0
+eq
+brf psXhGUFcWn
+ldl -3
+ldc 1
+add
+str RR
+unlink
+sts -2
+ajs -1
+ret
+bra 0QKBqhPbC9
+psXhGUFcWn:
+0QKBqhPbC9:
+ldl -3
+ldc 0
+eq
+brf W70S9gGMPC
+ldc 1
+ldl -2
+ldc 1
+sub
+bsr ackermann
+ldr RR
+str RR
+unlink
+sts -2
+ajs -1
+ret
+bra 5WI2xPAQh4
+W70S9gGMPC:
+5WI2xPAQh4:
+ldl -3
+ldc 1
+sub
+ldl -2
+bsr ackermann
+ldr RR
+ldl -2
+ldc 1
+sub
+bsr ackermann
+ldr RR
+str RR
+unlink
+sts -2
+ajs -1
+ret
+isEmpty:
+link 0
+ldl -2
+ldh -1
+ldc 0
+eq
+str RR
+unlink
+sts -1
+ret
+RuntimeErr:
+trap 0
+halt

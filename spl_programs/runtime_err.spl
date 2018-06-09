@@ -1,0 +1,18 @@
+main() :: -> Void {
+	[Int] list = [];
+	Int x = 0;
+	while(x < 10) {
+		list = x : list;
+		x = x + 1;
+	}
+
+	/* While it looks like this program will not terminate
+	* in fact it will. At some point you are asking
+	* for the head of the empty list and will then jump
+	* to the RuntimeErr function.
+	*/
+	while(True) {
+		print(list.hd);
+		list = list.tl;
+	}
+}

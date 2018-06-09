@@ -1,0 +1,20 @@
+Int call_count = 0;
+
+main() :: -> Void {
+	print(ackermann(3, 2));
+	print(call_count);
+}
+
+ackermann(x, y) :: Int Int -> Int {
+	call_count = call_count + 1;
+	if(x < 0 || y < 0) {
+		return -1;
+	}
+	if(x == 0) {
+		return y + 1;
+	}
+	if(y == 0) {
+		return ackermann(x - 1, 1);
+	}
+	return ackermann(x - 1, ackermann(x, y - 1));
+}
